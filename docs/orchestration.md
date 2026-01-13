@@ -41,7 +41,7 @@ sequenceDiagram
 
 To maximize speed, we split the project into two parallel tracks.
 
-### 👤 Track A: The "Eyes" (Frontend & Browser Integration)
+### 👤 Track A: The "Eyes" (Frontend & Browser Integration) - noureldeenay
 **Focus:** Browser APIs, UI, Media Capture.
 **Component:** `extension/`
 
@@ -60,7 +60,7 @@ To maximize speed, we split the project into two parallel tracks.
     *   Handle binary streaming of audio chunks to the backend.
     *   Handle playing back audio chunks received from the backend (PCM -> AudioContext).
 
-### 🛠️ Track B: The "Brain" (Backend & Infrastructure)
+### 🛠️ Track B: The "Brain" (Backend & Infrastructure) - mohikel
 **Focus:** Server logic, AI integration, Job Queues.
 **Component:** `backend/` & `frontend/` (Dashboard)
 
