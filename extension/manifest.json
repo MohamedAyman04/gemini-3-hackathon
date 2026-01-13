@@ -1,0 +1,40 @@
+{
+    "manifest_version": 3,
+    "name": "VibeCheck Companion",
+    "version": "1.0.0",
+    "permissions": [
+        "scripting",
+        "activeTab",
+        "tabCapture"
+    ],
+    "host_permissions": [
+        "<all_urls>"
+    ],
+    "sidebar_action": {
+        "default_panel": "sidepanel.html",
+        "default_title": "VibeCheck",
+        "default_icon": "public/vite.svg"
+    },
+    "browser_specific_settings": {
+        "gecko": {
+            "id": "vibecheck@gemini.hackathon",
+            "strict_min_version": "109.0"
+        }
+    },
+    "background": {
+        "scripts": [
+            "src/background.ts"
+        ],
+        "type": "module"
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "<all_urls>"
+            ],
+            "js": [
+                "src/content.ts"
+            ]
+        }
+    ]
+}
