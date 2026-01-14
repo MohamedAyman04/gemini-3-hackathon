@@ -4,8 +4,7 @@
     "version": "1.0.0",
     "permissions": [
         "scripting",
-        "activeTab",
-        "tabCapture"
+        "activeTab"
     ],
     "host_permissions": [
         "<all_urls>"
