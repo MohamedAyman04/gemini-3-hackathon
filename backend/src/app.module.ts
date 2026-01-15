@@ -7,6 +7,7 @@ import { AppService } from './app.service';
 import { MissionsModule } from './missions/missions.module';
 import { SessionsModule } from './sessions/sessions.module';
 import { AnalysisModule } from './analysis/analysis.module';
+import { GeminiModule } from './gemini/gemini.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { AnalysisModule } from './analysis/analysis.module';
     MissionsModule,
     SessionsModule,
     AnalysisModule,
+    GeminiModule,
   ],
   controllers: [AppController],
   providers: [AppService],

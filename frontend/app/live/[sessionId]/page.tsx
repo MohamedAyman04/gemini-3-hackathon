@@ -23,7 +23,11 @@ import {
   Terminal,
 } from "lucide-react";
 
-export default function LiveSession() {
+export default function LiveSession({
+  params,
+}: {
+  params: { sessionId: string };
+}) {
   const [logs, setLogs] = useState<string[]>([
     "[SYSTEM] Connection established.",
     "[AGENT] Analyzing DOM structure...",
@@ -34,6 +38,28 @@ export default function LiveSession() {
   const [emotion, setEmotion] = useState<"Neutral" | "Frustrated" | "Confused">(
     "Neutral"
   );
+
+  const handleTriggerAI = async () => {
+    try {
+      const response = await fetch("http://localhost:5000/analysis/test-ai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          url: "https://demo.vibecheck.ai/checkout",
+          context: "Guest checkout flow with credit card",
+          transcript:
+            "I am trying to enter my card details but the input field is not letting me type!",
+        }),
+      });
+      const data = await response.json();
+      console.log("AI Generated Script:", data.script);
+      alert(
+        "AI Reasoning Complete! Check console for the generated Playwright script."
+      );
+    } catch (error) {
+      console.error("AI Test failed:", error);
+    }
+  };
 
   useEffect(() => {
     // Simulate live logs
@@ -64,10 +90,18 @@ export default function LiveSession() {
             Live Session: Guest Checkout Flow
           </h1>
           <p className="text-gray-400 text-sm mt-1">
-            Session ID: #8823-AF92 • 00:04:23 elapsed
+            Session ID: #{params.sessionId} • 00:04:23 elapsed
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <Button
+            onClick={handleTriggerAI}
+            variant="outline"
+            size="sm"
+            className="border-violet-500 text-violet-500 hover:bg-violet-500/10"
+          >
+            Trigger AI Test
+          </Button>
           <Button
             variant="outline"
             size="sm"

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Play,
   Plus,
@@ -22,23 +23,33 @@ import {
   CardTitle,
 } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
+import { createMission, createSession } from "@/lib/api";
 
 export default function Dashboard() {
+  const router = useRouter();
   const [missionName, setMissionName] = useState("");
   const [url, setUrl] = useState("");
   const [context, setContext] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleLaunch = () => {
+  const handleLaunch = async () => {
     setIsLoading(true);
-    // TODO: Connect to Backend API
-    console.log("Launching mission:", { missionName, url, context });
+    try {
+      const mission = await createMission({
+        name: missionName,
+        url,
+        context,
+      });
 
-    setTimeout(() => {
+      const session = await createSession(mission.id);
+
+      router.push(`/live/${session.id}`);
+    } catch (error) {
+      console.error("Failed to launch mission:", error);
+      alert("Failed to launch mission. Check console for details.");
+    } finally {
       setIsLoading(false);
-      // Navigate to live session
-      // router.push('/live/123');
-    }, 2000);
+    }
   };
 
   return (
