@@ -9,8 +9,7 @@
     "host_permissions": [
         "<all_urls>"
     ],
-    "sidebar_action": {
-        "default_panel": "sidepanel.html",
+    "action": {
         "default_title": "VibeCheck",
         "default_icon": "public/vite.svg"
     },
