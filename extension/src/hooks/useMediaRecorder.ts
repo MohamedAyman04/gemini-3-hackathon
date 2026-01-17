@@ -71,6 +71,7 @@ export const useMediaRecorder = (): UseMediaRecorderReturn => {
             audioContextRef.current.close().catch(() => { });
             audioContextRef.current = null;
         }
+        analyserRef.current = null; // Fix: Clear analyser so it's recreated with new Context
         if (animationFrameRef.current) {
             cancelAnimationFrame(animationFrameRef.current);
             animationFrameRef.current = null;
