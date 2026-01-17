@@ -1,10 +1,12 @@
 import { useState } from 'react';
-import { Mic, MicOff, Radio, Activity, Bug } from 'lucide-react';
+import { Mic, MicOff, Radio, Activity, Bug, LogIn } from 'lucide-react';
 import './App.css';
 import { useMediaRecorder } from './hooks/useMediaRecorder';
+import { useAuth } from './hooks/useAuth';
 
 function App() {
   const { isRecording, startRecording, stopRecording, audioData, error } = useMediaRecorder();
+  const { isAuthenticated, isLoading, user, login, debugLogin } = useAuth();
   const [isMuted, setIsMuted] = useState(false);
   const [hurdles] = useState<string[]>([]);
 
@@ -16,13 +18,59 @@ function App() {
     }
   };
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gray-900 text-white p-6 flex flex-col items-center justify-center text-center gap-6">
+        <div className="flex items-center gap-2 mb-4">
+          <Activity className="text-purple-500 w-10 h-10" />
+          <h1 className="text-2xl font-bold tracking-tight">VibeCheck</h1>
+        </div>
+
+        <p className="text-gray-400 max-w-xs">
+          Connect your account to start an autonomous testing session.
+        </p>
+
+        <button
+          onClick={login}
+          className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg font-medium transition-colors w-full justify-center max-w-xs"
+        >
+          <LogIn className="w-5 h-5" />
+          Sign in with Dashboard
+        </button>
+
+        {/* Dev Mode Bypass */}
+        <button
+          onClick={debugLogin}
+          className="text-xs text-gray-600 hover:text-gray-400 underline decoration-dotted transition-colors"
+        >
+          [DEV] Bypass Auth
+        </button>
+
+        <p className="text-xs text-gray-500 mt-4">
+          Only works with active session on localhost:3000
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-900 text-white p-4 font-sans flex flex-col gap-6">
       {/* Header */}
       <header className="flex items-center justify-between border-b border-gray-800 pb-4">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <Activity className="text-purple-500 w-6 h-6" />
-          <h1 className="text-xl font-bold tracking-tight">VibeCheck</h1>
+          <div className="flex flex-col">
+            <h1 className="text-lg font-bold tracking-tight leading-none">VibeCheck</h1>
+            {user && <span className="text-[10px] text-gray-400">Hi, {user.name.split(' ')[0]}</span>}
+          </div>
         </div>
         <div className={`flex items-center gap-2 text-xs font-medium px-2 py-1 rounded-full ${isRecording ? 'bg-green-900/30 text-green-400 border border-green-800' : 'bg-red-900/30 text-red-400 border border-red-800'}`}>
           <div className={`w-2 h-2 rounded-full ${isRecording ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
@@ -126,5 +174,4 @@ function App() {
     </div>
   )
 }
-
-export default App
+export default App;
