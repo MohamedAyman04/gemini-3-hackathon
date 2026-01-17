@@ -18,7 +18,7 @@ VibeCheck operates as a **Firefox Extension** companion. Unlike traditional sess
 ## 2. Internal Architecture & Definitions
 
 ### 2.1 Operating Environment
-*   **Frontend**: Firefox Extension (React + Vite). Uses `sidebar_action` for UI and `content_scripts` for DOM access.
+*   **Frontend**: Firefox Extension (React + Vite). Uses `action` (popup) for UI and `content_scripts` for DOM access.
 *   **Backend**: NestJS (Node.js). Handles real-time streams and job orchestration.
 *   **AI Engine**: 
     *   **Gemini Multimodal Live**: For real-time "Vibe" check and voice interaction.
@@ -30,7 +30,7 @@ VibeCheck operates as a **Firefox Extension** companion. Unlike traditional sess
 
 ### 3.1 Mission Initialization (The Companion)
 *   **FR-1: Shared Authentication**: The extension shall automatically detect the user's session from the web dashboard cookies, eliminating the need for a separate login.
-*   **FR-2: Side Panel UI**: The system shall present a non-intrusive Sidebar UI for checking status, selecting the active Project/App ID, and toggling mute/privacy.
+*   **FR-2: Companion Window UI**: The system shall present a separate Popup Window for checking status, selecting the active Project/App ID, and toggling mute/privacy.
 *   **FR-3: Context Awareness**: The system shall analyze the page title and initial DOM to understand the "context" of the test (e.g., "This is an E-commerce Checkout flow").
 
 ### 3.2 Live Multimodal Observation (The Eyes & Ears)

@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { Mic, MicOff, Radio, Activity, Bug, LogIn } from 'lucide-react';
-import './App.css';
 import { useMediaRecorder } from './hooks/useMediaRecorder';
 import { useAuth } from './hooks/useAuth';
 

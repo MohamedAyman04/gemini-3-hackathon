@@ -54,7 +54,7 @@ To maximize speed, we split the project into two parallel tracks.
 **Focus:** Browser APIs, UI, Media Capture.
 **Component:** `extension/`
 
-1.  **Auth & Sidebar UI**
+1.  **Auth & Companion UI**
     *   Implement **Shared Authentication**: Read dashboard cookies to auto-login.
     *   UI States: `Idle` | `Connecting` | `Listening` | `Hurdle Uploading`.
     *   Project Selection Dropdown.

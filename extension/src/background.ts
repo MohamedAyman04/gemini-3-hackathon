@@ -26,7 +26,7 @@ chrome.action.onClicked.addListener(async () => {
     // 2. Create the "App-like" Pop-out Window
     try {
         const win = await chrome.windows.create({
-            url: "sidepanel.html",     // Entry point of your React App
+            url: "popup.html",     // Entry point of your React App
             type: "popup",         // "popup" removes the address bar/bookmarks
             width: 450,
             height: 700
