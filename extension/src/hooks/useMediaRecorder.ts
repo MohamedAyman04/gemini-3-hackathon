@@ -2,131 +2,212 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 
 // Define the payload for your Content Script
-interface StartRecordingMessage {
-    type: 'START_RECORDING';
-    timestamp: number;
-}
+// interface StartRecordingMessage {
+//     type: 'START_RECORDING';
+//     timestamp: number;
+// }
 
 interface UseMediaRecorderReturn {
     isRecording: boolean;
     startRecording: () => Promise<void>;
     stopRecording: () => void;
+    toggleMute: () => void;
+    isMuted: boolean;
     audioData: Uint8Array;
     analyser: AnalyserNode | null;
     error: string | null;
+    devices: MediaDeviceInfo[];
+    selectedAudioId: string;
+    setSelectedAudioId: (id: string) => void;
+    selectedVideoId: string;
+    setSelectedVideoId: (id: string) => void;
 }
 
 export const useMediaRecorder = (): UseMediaRecorderReturn => {
     const [isRecording, setIsRecording] = useState(false);
+    const [isMuted, setIsMuted] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [audioData, setAudioData] = useState<Uint8Array>(new Uint8Array(0));
 
+    const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
+    const [selectedAudioId, setSelectedAudioId] = useState<string>('');
+    const [selectedVideoId, setSelectedVideoId] = useState<string>('');
+
     const streamRef = useRef<MediaStream | null>(null);
     const audioContextRef = useRef<AudioContext | null>(null);
+    const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null); // Keep track of source to disconnect
     const analyserRef = useRef<AnalyserNode | null>(null);
     const animationFrameRef = useRef<number | null>(null);
+
+    const loadDevices = useCallback(async () => {
+        try {
+            await navigator.mediaDevices.getUserMedia({ audio: true });
+            const allDevices = await navigator.mediaDevices.enumerateDevices();
+            setDevices(allDevices);
+
+            const audioDevices = allDevices.filter(d => d.kind === 'audioinput');
+            if (audioDevices.length > 0 && !selectedAudioId) {
+                setSelectedAudioId(audioDevices[0].deviceId);
+            }
+        } catch (err) {
+            console.error("Failed to enumerate devices:", err);
+        }
+    }, [selectedAudioId]);
+
+    useEffect(() => {
+        loadDevices();
+    }, [loadDevices]);
 
     const cleanup = useCallback(() => {
         if (streamRef.current) {
             streamRef.current.getTracks().forEach(track => track.stop());
             streamRef.current = null;
         }
+        if (sourceRef.current) {
+            sourceRef.current.disconnect();
+            sourceRef.current = null;
+        }
         if (audioContextRef.current) {
-            audioContextRef.current.close();
+            audioContextRef.current.close().catch(() => { });
             audioContextRef.current = null;
         }
         if (animationFrameRef.current) {
             cancelAnimationFrame(animationFrameRef.current);
             animationFrameRef.current = null;
         }
+        // Don't reset devices/selected IDs here, only session state
         setIsRecording(false);
         setAudioData(new Uint8Array(0));
     }, []);
 
-    const startRecording = async () => {
-        setError(null);
-        try {
-            // Request Audio (Mic)
-            // Note: In an extension, getUserMedia might pop up a permission request window.
-            // We start with just Audio for the "Vibe" check. 
-            // Screen share can be requested when strictly needed or immediately if we want full multimodal.
-            // For this step, let's try to get both.
+    // Helper to setup AudioContext chain from a stream
+    const connectStreamToAnalyser = (stream: MediaStream) => {
+        if (!audioContextRef.current) {
+            audioContextRef.current = new AudioContext();
+        }
+        const ctx = audioContextRef.current;
 
-            const stream = await navigator.mediaDevices.getUserMedia({
-                audio: true
-            });
+        // If we had an old source, disconnect it
+        if (sourceRef.current) {
+            sourceRef.current.disconnect();
+        }
 
-            // Optionally get screen stream here if needed immediately, 
-            // but usually we want to treat them separately or merge them.
-            // const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+        const source = ctx.createMediaStreamSource(stream);
+        sourceRef.current = source;
 
-            streamRef.current = stream;
-
-            console.log("getUserMedia called.");
-
-
-            const tabs = await chrome.tabs.query({
-                active: true,
-                windowType: 'normal',
-                currentWindow: false // Ensure we don't look at ourself
-            });
-
-            console.log("tabs: ", tabs);
-
-            const targetTab = tabs[0];
-
-            if (!targetTab?.id) {
-                throw new Error("No active browser tab found to test.");
-            }
-
-            // ---------------------------------------------------------
-            // 3. Signal the Content Script
-            // ---------------------------------------------------------
-            const message: StartRecordingMessage = {
-                type: 'START_RECORDING',
-                timestamp: Date.now()
-            };
-
-            await chrome.tabs.sendMessage(targetTab.id, message);
-
-            // Setup Audio Analysis
-            const audioContext = new AudioContext();
-            audioContextRef.current = audioContext;
-
-            const source = audioContext.createMediaStreamSource(stream);
-            const analyser = audioContext.createAnalyser();
-            analyser.fftSize = 64; // Low res for visualizer
-            source.connect(analyser);
+        if (!analyserRef.current) {
+            const analyser = ctx.createAnalyser();
+            analyser.fftSize = 64;
             analyserRef.current = analyser;
+        }
 
-            // Animation Loop for Visualizer Data
-            const bufferLength = analyser.frequencyBinCount;
+        source.connect(analyserRef.current!);
+
+        // Start vis loop if not running
+        if (!animationFrameRef.current) {
+            const bufferLength = analyserRef.current!.frequencyBinCount;
             const dataArray = new Uint8Array(bufferLength);
 
             const updateVisualizer = () => {
-                analyser.getByteFrequencyData(dataArray);
-                setAudioData(new Uint8Array(dataArray)); // Create new array to trigger React render
+                if (analyserRef.current) {
+                    analyserRef.current.getByteFrequencyData(dataArray);
+                    setAudioData(new Uint8Array(dataArray));
+                }
                 animationFrameRef.current = requestAnimationFrame(updateVisualizer);
             };
-
             updateVisualizer();
-            setIsRecording(true);
+        }
+    };
 
-            console.log(stream);
+    const getMediaStream = async (audioId: string) => {
+        const audioConstraints: boolean | MediaTrackConstraints = audioId
+            ? { deviceId: { exact: audioId } }
+            : true;
+
+        return await navigator.mediaDevices.getUserMedia({
+            audio: audioConstraints
+        });
+    }
+
+    const startRecording = async () => {
+        setError(null);
+        try {
+            // 1. Get Mic Stream
+            const stream = await getMediaStream(selectedAudioId);
+            streamRef.current = stream;
+
+            // Apply initial mute state
+            stream.getAudioTracks().forEach(t => t.enabled = !isMuted);
+
+            // 2. Setup Audio Processing
+            connectStreamToAnalyser(stream);
+
+            // 3. Signal Content Script (The Session Logic)
+            const tabs = await chrome.tabs.query({ active: true, currentWindow: false, windowType: 'normal' });
+            const targetTab = tabs[0];
+            if (!targetTab?.id) throw new Error("No active browser tab found.");
+
+            await chrome.tabs.sendMessage(targetTab.id, {
+                type: 'START_RECORDING',
+                timestamp: Date.now()
+            });
+
+            setIsRecording(true);
 
         } catch (err: any) {
             console.error("Error starting recording:", err);
-
-            // Handle Sidebar permission restriction
             if (err.name === 'NotAllowedError' || err.name === 'SecurityError') {
-                setError('Microphone access denied. Open extension in a tab to grant permissions.');
+                setError('Microphone access denied. Open extension popup to grant permissions.');
             } else {
                 setError(err.message || 'Failed to start recording');
             }
-
             cleanup();
         }
     };
+
+    // Hot-swapping Audio Device
+    useEffect(() => {
+        if (!isRecording) return;
+
+        // If generic state update (e.g. init), don't restart if stream already matches?
+        // Actually, checking if stream track matches selection is complex. 
+        // We'll just assume if ID changed and we are recording, we switch.
+
+        const switchDevice = async () => {
+            try {
+                const newStream = await getMediaStream(selectedAudioId);
+
+                // Stop old tracks to release mic light
+                if (streamRef.current) {
+                    streamRef.current.getTracks().forEach(t => t.stop());
+                }
+
+                streamRef.current = newStream;
+                // Apply mute state to new stream
+                newStream.getAudioTracks().forEach(t => t.enabled = !isMuted);
+
+                // Reconnect analysis
+                connectStreamToAnalyser(newStream);
+            } catch (err) {
+                console.error("Failed to switch device:", err);
+                setError("Failed to switch input device");
+            }
+        };
+
+        switchDevice();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedAudioId, isRecording, isMuted]); // Trigger when ID changes or mute state changes (to apply to new stream)
+
+
+    const toggleMute = useCallback(() => {
+        setIsMuted(prev => {
+            const newState = !prev;
+            if (streamRef.current) {
+                streamRef.current.getAudioTracks().forEach(t => t.enabled = !newState);
+            }
+            return newState;
+        });
+    }, []);
 
     const stopRecording = () => {
         cleanup();
@@ -140,8 +221,15 @@ export const useMediaRecorder = (): UseMediaRecorderReturn => {
         isRecording,
         startRecording,
         stopRecording,
+        toggleMute,
+        isMuted,
         audioData,
         analyser: analyserRef.current,
-        error
+        error,
+        devices,
+        selectedAudioId,
+        setSelectedAudioId,
+        selectedVideoId,
+        setSelectedVideoId
     };
 };
