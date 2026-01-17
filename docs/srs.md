@@ -27,23 +27,29 @@ VibeCheck operates as a **Firefox Extension** companion. Unlike traditional sess
 
 ## 3. System Features & Functional Requirements
 
+
 ### 3.1 Mission Initialization (The Companion)
-*   **FR-1: Extension Injection**: The system shall inject into any active browser tab when permitted by the user.
-*   **FR-2: Side Panel UI**: The system shall present a non-intrusive Sidebar UI for checking status and toggling mute/privacy.
+*   **FR-1: Shared Authentication**: The extension shall automatically detect the user's session from the web dashboard cookies, eliminating the need for a separate login.
+*   **FR-2: Side Panel UI**: The system shall present a non-intrusive Sidebar UI for checking status, selecting the active Project/App ID, and toggling mute/privacy.
 *   **FR-3: Context Awareness**: The system shall analyze the page title and initial DOM to understand the "context" of the test (e.g., "This is an E-commerce Checkout flow").
 
 ### 3.2 Live Multimodal Observation (The Eyes & Ears)
-*   **FR-4: DOM Recording**: The system shall use `rrweb` to record a lightweight log of all DOM mutations, mouse movements, and inputs.
-*   **FR-5: Viewport Capture**: The system shall use `tabCapture` or `getDisplayMedia` to stream the visual state of the tab.
-*   **FR-6: Voice IO**: The system shall capture the user's microphone and stream it low-latency to the backend.
+*   **FR-4: DOM Recording**: The system shall use `rrweb` to maintain a continuous, lightweight circular buffer (last 2-5 minutes) of DOM mutations.
+*   **FR-5: High-Fidelity Capture**: The system shall use `tabCapture` to record high-quality video for *human* review and archival.
+*   **FR-6: AI-Optimized Streaming**:
+    *   **Audio**: Continuous low-latency stream to Gemini for intent/emotion detection.
+    *   **Visual**: Random-access screenshots or low-FPS (1 FPS) feed to Gemini to provide visual context without excessive token usage.
 
 ### 3.3 Real-Time Autonomous Intervention (The Brain)
-*   **FR-7: Emotion Detection**: The system shall utilize Gemini Live to detect tonal changes (frustration, anger, confusion) in the user's voice.
-*   **FR-8: Visual Frustration Detection**: The system shall detect rage-clicking or rapid scrolling via the visual/DOM stream.
+*   **FR-7: Emotion & Intent Detection**: The system shall utilize Gemini Live to detect tonal changes (frustration) AND explicit voice commands ("This button is broken", "Flag this bug").
+*   **FR-8: Heuristic Detection**: The system shall locally detect rage-clicking or rapid scrolling via the DOM event stream.
 *   **FR-9: Empathetic Interruption**: The system shall verbally intervene ("Hey, I see you're struggling there...") when thresholds are met, using TTS (Text-to-Speech).
 
 ### 3.4 Artifact Generation (The Engineer)
-*   **FR-10: The "Hurdle" Packet**: Upon detecting an issue, the system shall bundle the last `N` minutes of `rrweb` logs, video, and audio.
+*   **FR-10: The "Hurdle" Packet**: Upon trigger (Manual, Voice, or Heuristic), the system shall bundle:
+    *   The last `N` minutes of `rrweb` events (The "Black Box").
+    *   The High-Fidelity Video/Audio buffer.
+    *   The Gemini Transcript of the session.
 *   **FR-11: Script Generation**: The system shall prompt an LLM to specifically convert the `rrweb` JSON sequence into a **Playwright (TypeScript)** test script.
 *   **FR-12: Auto-Verification**: The system shall spin up a headless browser container and execute the generated script.
     *   If the script relies on a specific state, it should attempt to reach that state or flag as "Needs Setup".

@@ -4,34 +4,43 @@
 
 This diagram describes how data flows through the system in real-time.
 
+
 ```mermaid
 sequenceDiagram
     participant User
     participant Ext as 🦊 Firefox Extension
     participant BE as 🧠 NestJS Backend
-    participant Gem as ✨ Gemini Live API
+    participant Gem as ✨ Gemini Multimodal
     participant Worker as 🏭 BullMQ Worker
     participant PW as 🎭 Playwright Engine
 
-    Note over User, Ext: Phase 1: Observation
+    Note over User, Ext: Phase 1: Authentication & Setup
+    User->>Ext: Opens Extension
+    Ext->>Ext: Check Cookies for Dashboard Session
+    Ext->>BE: Auth Handshake (Get User Projects)
+    User->>Ext: Selects "Active Project" & Starts Session
+
+    Note over User, Ext: Phase 2: Observation (Optimized)
     User->>Ext: Browses Target Website
-    Ext->>Ext: Captures DOM (rrweb) + A/V (MediaRecorder)
-    Ext->>BE: Streams Binary Data (Socket.io)
+    Ext->>Ext: Buffers `rrweb` DOM Events (Last 2 mins)
+    Ext->>Ext: Buffers High-Res Video (Last 2 mins)
+    Ext->>BE: Streams Audio (Continuous)
+    Ext->>BE: Streams Low-FPS Screenshots (1 FPS)
     
-    Note over BE, Gem: Phase 2: Analysis (Realtime)
-    BE->>Gem: Pipes A/V Stream
-    Gem-->>BE: "User looks frustrated" (Event)
-    BE-->>Ext: Audio Response ("Need help?")
+    Note over BE, Gem: Phase 3: Analysis (Realtime)
+    BE->>Gem: Pipes Audio + Screenshots
+    Gem-->>BE: "User looks frustrated" OR "Intent: Bug Flagged"
+    BE-->>Ext: Audio Response ("Need help?" / "Bug Logged")
     
-    Note over Ext, Worker: Phase 3: Intervention & Capture
-    User->>Ext: "Yeah, this button is broken!"
-    Ext->>BE: Sends "Hurdle Detected" Signal
-    BE->>Worker: Enqueues Job { rrweb_log, video_buffer, transcript }
+    Note over Ext, Worker: Phase 4: Capture & Reproduction
+    User->>Ext: "Yeah, this button is broken!" (Voice Trigger)
+    Ext->>BE: Uploads "Hurdle Packet" { rrweb_log, video_buffer, transcript }
+    BE->>Worker: Enqueues Job
     
-    Note over Worker, PW: Phase 4: Reproduction (Async)
-    Worker->>Gem: "Analyze this logs & generate Playwright script"
-    Gem-->>Worker: Returns code.ts
-    Worker->>PW: Executes code.ts
+    Note over Worker, PW: Phase 5: Synthesis (Async)
+    Worker->>Gem: "Analyze rrweb + transcript -> Generate Playwright"
+    Gem-->>Worker: Returns reproduction_script.ts
+    Worker->>PW: Executes reproduction_script.ts
     PW-->>Worker: Result (Pass/Fail)
 ```
 
@@ -45,20 +54,20 @@ To maximize speed, we split the project into two parallel tracks.
 **Focus:** Browser APIs, UI, Media Capture.
 **Component:** `extension/`
 
-1.  **Sidebar UI Implementation**
-    *   Build the React UI for the Firefox Sidebar.
-    *   States: `Idle` | `Connecting` | `Listening` | `Hurdle Detected`.
-    *   Microphone/Speaker toggles and visualization (Canvas audio visualizer).
+1.  **Auth & Sidebar UI**
+    *   Implement **Shared Authentication**: Read dashboard cookies to auto-login.
+    *   UI States: `Idle` | `Connecting` | `Listening` | `Hurdle Uploading`.
+    *   Project Selection Dropdown.
 
 2.  **The "Recorder" Engine**
-    *   Implement **`rrweb`** record function injected into the active tab's content script.
-    *   Implement **`MediaRecorder`** logic to capture the active tab's video stream.
-    *   Buffer management: Keep the last 2 minutes of data in memory (circular buffer) to send when a bug is found.
-
-3.  **Real-time Streaming Client**
-    *   Setup `socket.io-client` in the extension background script.
-    *   Handle binary streaming of audio chunks to the backend.
-    *   Handle playing back audio chunks received from the backend (PCM -> AudioContext).
+    *   **Context Capture**: Implement `rrweb` circular buffer (keep last ~5000 events).
+    *   **Visual Capture**: Implement `MediaRecorder` logic.
+        *   **Stream A (AI)**: Low FPS (or periodic screenshots) canvas extraction.
+        *   **Stream B (Evidence)**: High Quality video buffer.
+    
+3.  **Real-time Interaction**
+    *   Setup `socket.io-client` for bi-directional audio/command streaming.
+    *   Audio Visualization (Canvas) so user knows when Gemini is "listening".
 
 ### 🛠️ Track B: The "Brain" (Backend & Infrastructure) - mohikel
 **Focus:** Server logic, AI integration, Job Queues.
@@ -66,23 +75,26 @@ To maximize speed, we split the project into two parallel tracks.
 
 1.  **Real-time Gateway (NestJS)**
     *   Setup `Gateway` with Socket.io.
-    *   Implement **Gemini Multimodal Live API** proxy:
-        *   Receive user audio/video -> Pipe to Gemini.
-        *   Receive Gemini audio -> Pipe to Extension.
-    *   Prompt System: Inject the "VibeCheck Personality" system prompt.
+    *   **Gemini Proxy Optimization**: 
+        *   Throttling video frames sent to Gemini API to save tokens.
+        *   Maintaining the open WebSocket session with Gemini Live.
 
 2.  **The "Factory" (Async Workers)**
-    *   Setup **BullMQ (Redis)** to handle "Hurdle Jobs".
-    *   **Prompt Engineering**: Create the prompts (in `prompts/analysis`) that take `rrweb` JSON and output Playwright code.
-    *   **Execution Engine**: Create a service that writes the string code to a file and executes it using `npx playwright test`.
+    *   Setup **BullMQ** to process the heavy "Hurdle Packets".
+    *   **Code Generation Pipeline**:
+        *   Input: `rrweb` events (JSON) + User Voice Transcript.
+        *   Output: `Playwright` test script.
+    *   **Execution**: Run the generated test in a sandboxed Docker container.
 
 3.  **Dashboard & Integrations**
-    *   Build the *Next.js Dashboard* (`frontend/`) to list past sessions.
-    *   Integrate **GitHub API** (Octokit) to create issues with the reproduction video/script attached.
+    *   **Octokit Integration**: Auto-create GitHub issues from the worker results.
+    *   **Session Player**: A player that allows replaying the `rrweb` session + synced Audio.
 
 ---
 
 ## 3. Joint Integration Points
-*   **The "Hurdle" Packet**: Agree on the exact JSON structure sent when a bug is found.
-    *   `{ timestamp: number, dom_events: Event[], video_blob: Blob, transcript: string }`
-*   **Socket Events**: Define the event names (`audio_chunk`, `ai_response`, `trigger_report`).
+*   **The "Hurdle" Packet**:
+    *   `{ events: rrweb.event[], videoChunk: Blob, audioChunk: Blob, aiContext: string }`
+*   **Socket Protocol**:
+    *   `client -> server`: `audio_data`, `video_frame` (throttled), `trigger_bug`
+    *   `server -> client`: `ai_voice_chunk`, `status_update`
