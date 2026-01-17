@@ -4,7 +4,7 @@ import { useMediaRecorder } from './hooks/useMediaRecorder';
 import { useAuth } from './hooks/useAuth';
 
 function App() {
-  const { isRecording, startRecording, stopRecording, toggleMute, isMuted, audioData, error, devices, selectedAudioId, setSelectedAudioId } = useMediaRecorder();
+  const { isRecording, startRecording, stopRecording, toggleMute, isMuted, audioData, error, devices, selectedAudioId, setSelectedAudioId, checkPermissions, permissionError } = useMediaRecorder();
   const { isAuthenticated, isLoading, user, login, debugLogin } = useAuth();
   const [hurdles] = useState<string[]>([]);
 
@@ -150,26 +150,42 @@ function App() {
               {isMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
             </button>
 
-            {/* Device Selection Dropdown */}
+            {/* Device Selection Dropdown or Permission Request */}
             <div className="relative flex-1">
-              <select
-                value={selectedAudioId}
-                onChange={(e) => setSelectedAudioId(e.target.value)}
-                className="w-full bg-gray-800 text-xs text-gray-300 rounded-lg border border-gray-700 px-3 py-3 focus:outline-none focus:border-purple-500 appearance-none truncate"
-              >
-                {devices
-                  .filter(d => d.kind === 'audioinput')
-                  .map(device => (
-                    <option key={device.deviceId} value={device.deviceId}>
-                      {device.label || `Microphone ${device.deviceId.slice(0, 5)}...`}
-                    </option>
-                  ))}
-                {devices.filter(d => d.kind === 'audioinput').length === 0 && <option>Default Microphone</option>}
-              </select>
-              {/* Down Arrow Icon Overlay */}
-              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
-                <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" /></svg>
-              </div>
+              {devices.filter(d => d.kind === 'audioinput').length === 0 || permissionError ? (
+                <button
+                  onClick={() => {
+                    if (permissionError) {
+                      window.open(chrome.runtime.getURL('popup.html'), '_blank');
+                    } else {
+                      checkPermissions();
+                    }
+                  }}
+                  className={`w-full text-xs font-medium rounded-lg border px-3 py-3 transition-colors flex items-center justify-center gap-2 ${permissionError ? 'bg-red-900/20 text-red-400 border-red-800/50 hover:bg-red-900/30' : 'bg-purple-900/20 text-purple-400 border-purple-800/50 hover:bg-purple-900/30'}`}
+                >
+                  {permissionError ? <Bug className="w-3 h-3" /> : <MicOff className="w-3 h-3" />}
+                  {permissionError ? 'Microphone Blocked (Open Tab)' : 'Enable Microphone'}
+                </button>
+              ) : (
+                <div className="relative">
+                  <select
+                    value={selectedAudioId}
+                    onChange={(e) => setSelectedAudioId(e.target.value)}
+                    className="w-full bg-gray-800 text-xs text-gray-300 rounded-lg border border-gray-700 px-3 py-3 focus:outline-none focus:border-purple-500 appearance-none truncate"
+                  >
+                    {devices
+                      .filter(d => d.kind === 'audioinput')
+                      .map(device => (
+                        <option key={device.deviceId} value={device.deviceId}>
+                          {device.label || `Microphone ${device.deviceId.slice(0, 5)}...`}
+                        </option>
+                      ))}
+                  </select>
+                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
+                    <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" /></svg>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

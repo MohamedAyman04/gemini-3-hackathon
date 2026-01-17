@@ -21,6 +21,8 @@ interface UseMediaRecorderReturn {
     setSelectedAudioId: (id: string) => void;
     selectedVideoId: string;
     setSelectedVideoId: (id: string) => void;
+    checkPermissions: () => Promise<void>;
+    permissionError: boolean;
 }
 
 export const useMediaRecorder = (): UseMediaRecorderReturn => {
@@ -39,24 +41,36 @@ export const useMediaRecorder = (): UseMediaRecorderReturn => {
     const analyserRef = useRef<AnalyserNode | null>(null);
     const animationFrameRef = useRef<number | null>(null);
 
-    const loadDevices = useCallback(async () => {
+    const [permissionError, setPermissionError] = useState<boolean>(false);
+
+    const checkPermissions = useCallback(async () => {
         try {
+            // Must ask for permission first to get labels
             await navigator.mediaDevices.getUserMedia({ audio: true });
+            setPermissionError(false);
+
             const allDevices = await navigator.mediaDevices.enumerateDevices();
             setDevices(allDevices);
 
             const audioDevices = allDevices.filter(d => d.kind === 'audioinput');
+
             if (audioDevices.length > 0 && !selectedAudioId) {
+                // Check if the currently selected ID effectively still exists? 
+                // For now just default if empty
                 setSelectedAudioId(audioDevices[0].deviceId);
             }
-        } catch (err) {
+        } catch (err: any) {
             console.error("Failed to enumerate devices:", err);
+            if (err.name === 'NotAllowedError' || err.name === 'SecurityError') {
+                setPermissionError(true);
+            }
         }
     }, [selectedAudioId]);
 
+    // Initial load
     useEffect(() => {
-        loadDevices();
-    }, [loadDevices]);
+        checkPermissions();
+    }, [checkPermissions]);
 
     const cleanup = useCallback(() => {
         if (streamRef.current) {
@@ -231,6 +245,8 @@ export const useMediaRecorder = (): UseMediaRecorderReturn => {
         selectedAudioId,
         setSelectedAudioId,
         selectedVideoId,
-        setSelectedVideoId
+        setSelectedVideoId,
+        checkPermissions,
+        permissionError
     };
 };
