@@ -1,33 +1,34 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, use } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/Card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import {
   Maximize2,
   Mic,
-  MicOff,
   Video,
   VideoOff,
-  Pause,
   Square,
   AlertTriangle,
   MessageSquare,
   Terminal,
+  Activity,
 } from "lucide-react";
+import { io, Socket } from "socket.io-client";
 
 export default function LiveSession({
   params,
 }: {
-  params: { sessionId: string };
+  params: Promise<{ sessionId: string }>;
 }) {
+  const router = useRouter();
+  const unwrappedParams = use(params);
+  const sessionId = unwrappedParams.sessionId;
+
+  const socketRef = useRef<Socket | null>(null);
+  const [isConnected, setIsConnected] = useState(false);
   const [logs, setLogs] = useState<string[]>([
     "[SYSTEM] Connection established.",
     "[AGENT] Analyzing DOM structure...",
@@ -36,7 +37,7 @@ export default function LiveSession({
   ]);
 
   const [emotion, setEmotion] = useState<"Neutral" | "Frustrated" | "Confused">(
-    "Neutral"
+    "Neutral",
   );
 
   const handleTriggerAI = async () => {
@@ -51,17 +52,60 @@ export default function LiveSession({
             "I am trying to enter my card details but the input field is not letting me type!",
         }),
       });
+      if (!response.ok) {
+        throw new Error("AI Synthesis failed on server");
+      }
       const data = await response.json();
       console.log("AI Generated Script:", data.script);
-      alert(
-        "AI Reasoning Complete! Check console for the generated Playwright script."
-      );
+      if (data.script) {
+        setLogs((prev) => [
+          ...prev,
+          `[AI] Synthesis complete. Generated ${data.script.length} bytes of Playwright code.`,
+        ]);
+        alert(
+          "AI Reasoning Complete! Check console for the generated Playwright script.",
+        );
+      } else {
+        alert("AI did not return a script. Check backend logs.");
+      }
     } catch (error) {
       console.error("AI Test failed:", error);
+      alert(
+        `AI Synthesis Error: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  };
+
+  const handleEndSession = () => {
+    if (
+      confirm(
+        "Are you sure you want to end this session? All live data will be archived.",
+      )
+    ) {
+      router.push("/");
     }
   };
 
   useEffect(() => {
+    // Connect to backend
+    const socket = io("http://localhost:5000");
+    socketRef.current = socket;
+
+    socket.on("connect", () => {
+      setIsConnected(true);
+      socket.emit("join_session", { sessionId: sessionId });
+    });
+
+    socket.on("ai_audio", (data) => {
+      setLogs((prev) =>
+        [...prev, "[AGENT] Recieved AI Voice Response."].slice(-10),
+      );
+    });
+
+    socket.on("disconnect", () => {
+      setIsConnected(false);
+    });
+
     // Simulate live logs
     const interval = setInterval(() => {
       const msgs = [
@@ -72,11 +116,15 @@ export default function LiveSession({
       ];
       const randomMsg = msgs[Math.floor(Math.random() * msgs.length)];
       setLogs((prev) =>
-        [...prev, `${new Date().toLocaleTimeString()} ${randomMsg}`].slice(-10)
+        [...prev, `${new Date().toLocaleTimeString()} ${randomMsg}`].slice(-10),
       );
-    }, 3000);
-    return () => clearInterval(interval);
-  }, []);
+    }, 4000);
+
+    return () => {
+      socket.disconnect();
+      clearInterval(interval);
+    };
+  }, [sessionId]);
 
   return (
     <div className="h-[calc(100vh-8rem)] flex flex-col gap-6">
@@ -89,9 +137,17 @@ export default function LiveSession({
             </span>
             Live Session: Guest Checkout Flow
           </h1>
-          <p className="text-gray-400 text-sm mt-1">
-            Session ID: #{params.sessionId} • 00:04:23 elapsed
-          </p>
+          <div className="flex items-center gap-4 mt-1">
+            <p className="text-gray-400 text-sm">
+              Session ID: #{sessionId} • 00:04:23 elapsed
+            </p>
+            <Badge
+              variant={isConnected ? "success" : "secondary"}
+              className="text-[10px] py-0"
+            >
+              {isConnected ? "WEBSOCKET LIVE" : "CONNECTING..."}
+            </Badge>
+          </div>
         </div>
         <div className="flex items-center gap-3">
           <Button
@@ -100,11 +156,13 @@ export default function LiveSession({
             size="sm"
             className="border-violet-500 text-violet-500 hover:bg-violet-500/10"
           >
-            Trigger AI Test
+            <Activity className="w-4 h-4 mr-2" />
+            Trigger AI Synthesis
           </Button>
           <Button
             variant="outline"
             size="sm"
+            onClick={handleEndSession}
             className="border-red-500/50 text-red-500 hover:bg-red-500/10"
           >
             <Square className="w-4 h-4 mr-2 text-red-500" /> End Session
@@ -119,7 +177,7 @@ export default function LiveSession({
             <div className="absolute inset-0 flex items-center justify-center bg-slate-900/50">
               <p className="text-gray-500 flex items-center gap-2">
                 <VideoOff className="w-5 h-5" />
-                Waiting for screen stream...
+                Waiting for extension stream...
               </p>
             </div>
 
@@ -183,7 +241,7 @@ export default function LiveSession({
                 <p className="text-xs text-gray-400 uppercase tracking-wider">
                   Friction Score
                 </p>
-                <div className="mt-1 text-lg font-mono">
+                <div className="mt-1 text-lg font-mono text-white">
                   12<span className="text-sm text-gray-500">/100</span>
                 </div>
               </div>
@@ -207,9 +265,9 @@ export default function LiveSession({
 
         {/* Sidebar: Logs & Events */}
         <div className="col-span-1 flex flex-col gap-4">
-          <Card className="flex-1 border-white/5 flex flex-col">
+          <Card className="flex-1 border-white/5 flex flex-col bg-slate-900/40">
             <CardHeader className="py-3 px-4 border-b border-white/5 bg-white/[0.02]">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <CardTitle className="text-sm font-medium flex items-center gap-2 text-white">
                 <Terminal className="w-4 h-4 text-violet-400" />
                 Live Agent Logs
               </CardTitle>
@@ -229,8 +287,10 @@ export default function LiveSession({
                         log.includes("[AGENT]")
                           ? "text-violet-300"
                           : log.includes("[USER]")
-                          ? "text-emerald-300"
-                          : "text-gray-100"
+                            ? "text-emerald-300"
+                            : log.includes("[AI]")
+                              ? "text-orange-300"
+                              : "text-gray-100"
                       }
                     >
                       {log.substring(11)}

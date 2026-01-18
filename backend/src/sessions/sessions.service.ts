@@ -22,7 +22,10 @@ export class SessionsService {
   }
 
   findOne(id: string) {
-    return this.sessionsRepository.findOne({ where: { id } });
+    return this.sessionsRepository.findOne({
+      where: { id },
+      relations: ['mission'],
+    });
   }
 
   update(id: string, updateSessionDto: UpdateSessionDto) {

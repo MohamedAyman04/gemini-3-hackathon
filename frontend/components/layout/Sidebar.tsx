@@ -14,7 +14,6 @@ const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
   { name: "Sessions", href: "/sessions", icon: History },
   { name: "Live View", href: "/live", icon: Activity },
-  { name: "Settings", href: "/settings", icon: Settings },
 ];
 
 export function Sidebar() {
@@ -45,7 +44,7 @@ export function Sidebar() {
                   "group flex items-center rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
                   isActive
                     ? "bg-violet-600/10 text-violet-400"
-                    : "text-gray-400 hover:bg-white/5 hover:text-white"
+                    : "text-gray-400 hover:bg-white/5 hover:text-white",
                 )}
               >
                 <item.icon
@@ -53,7 +52,7 @@ export function Sidebar() {
                     "mr-3 h-5 w-5 flex-shrink-0 transition-colors",
                     isActive
                       ? "text-violet-400"
-                      : "text-gray-500 group-hover:text-white"
+                      : "text-gray-500 group-hover:text-white",
                   )}
                   aria-hidden="true"
                 />

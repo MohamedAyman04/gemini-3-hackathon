@@ -31,6 +31,16 @@
 $ npm install
 ```
 
+### Environment Configuration
+
+Before running the application, you need to set up your environment variables. Copy the `.env.example` file to `.env` and fill in your configuration:
+
+```bash
+$ cp .env.example .env
+```
+
+**Important**: You must set the `GEMINI_API_KEY` environment variable. Get your API key from [Google AI Studio](https://aistudio.google.com/app/apikey).
+
 ## Compile and run the project
 
 ```bash
