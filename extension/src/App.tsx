@@ -1,12 +1,19 @@
-import { useState } from 'react';
-import { Mic, MicOff, Radio, Activity, Bug, LogIn } from 'lucide-react';
+import { useRef, useEffect, useState } from 'react';
+import { Mic, MicOff, Radio, Activity, Bug, LogIn, Video, VideoOff } from 'lucide-react';
 import { useMediaRecorder } from './hooks/useMediaRecorder';
 import { useAuth } from './hooks/useAuth';
 
 function App() {
-  const { isRecording, startRecording, stopRecording, toggleMute, isMuted, audioData, error, devices, selectedAudioId, setSelectedAudioId, checkPermissions, permissionError } = useMediaRecorder();
+  const { isRecording, startRecording, stopRecording, toggleAudio, toggleVideo, isAudioEnabled, isVideoEnabled, audioData, error, devices, selectedAudioId, setSelectedAudioId, selectedVideoId, setSelectedVideoId, stream, checkPermissions, permissionError } = useMediaRecorder();
   const { isAuthenticated, isLoading, user, login, debugLogin } = useAuth();
   const [hurdles] = useState<string[]>([]);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    if (videoRef.current && stream) {
+      videoRef.current.srcObject = stream;
+    }
+  }, [stream, isVideoEnabled]);
 
   const toggleConnection = async () => {
     if (isRecording) {
@@ -144,10 +151,10 @@ function App() {
         <div className="flex flex-col gap-4 w-full">
           <div className="flex items-center gap-2 w-full">
             <button
-              onClick={toggleMute}
-              className={`p-3 rounded-lg transition-colors flex-shrink-0 ${isMuted ? 'bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/50' : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white border border-gray-700'}`}
+              onClick={toggleAudio}
+              className={`p-3 rounded-lg transition-colors flex-shrink-0 ${!isAudioEnabled ? 'bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/50' : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white border border-gray-700'}`}
             >
-              {isMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+              {!isAudioEnabled ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
             </button>
 
             {/* Device Selection Dropdown or Permission Request */}
@@ -189,15 +196,51 @@ function App() {
             </div>
           </div>
 
-          {/* Camera Selection (Future Proofing) */}
-          {/* <div className="flex items-center gap-2 w-full opacity-50 cursor-not-allowed">
-                <button className="p-3 rounded-lg bg-gray-800 text-gray-400 border border-gray-700">
-                    <Video className="w-5 h-5" />
-                </button>
-                 <select disabled className="w-full bg-gray-800 text-xs text-gray-500 rounded-lg border border-gray-700 px-3 py-3 appearance-none">
-                    <option>Camera (Disabled)</option>
-                </select>
-             </div> */}
+          {/* Camera Selection */}
+          <div className="flex items-center gap-2 w-full">
+            <button
+              onClick={toggleVideo}
+              className={`p-3 rounded-lg transition-colors flex-shrink-0 ${!isVideoEnabled ? 'bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/50' : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white border border-gray-700'}`}
+            >
+              {!isVideoEnabled ? <VideoOff className="w-5 h-5" /> : <Video className="w-5 h-5" />}
+            </button>
+
+            <div className="relative flex-1">
+              <select
+                value={selectedVideoId}
+                onChange={(e) => setSelectedVideoId(e.target.value)}
+                className="w-full bg-gray-800 text-xs text-gray-300 rounded-lg border border-gray-700 px-3 py-3 focus:outline-none focus:border-purple-500 appearance-none truncate"
+              >
+                {devices
+                  .filter(d => d.kind === 'videoinput')
+                  .map(device => (
+                    <option key={device.deviceId} value={device.deviceId}>
+                      {device.label || `Camera ${device.deviceId.slice(0, 5)}...`}
+                    </option>
+                  ))}
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
+                <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" /></svg>
+              </div>
+            </div>
+          </div>
+
+          {/* Video Preview */}
+          {isVideoEnabled && isRecording && (
+            <div className="w-full aspect-video bg-black rounded-lg overflow-hidden border border-gray-800 relative group">
+              <video
+                ref={videoRef}
+                autoPlay
+                muted
+                playsInline
+                className="w-full h-full object-cover transform scale-x-[-1]"
+              />
+              <div className="absolute bottom-2 left-2 bg-black/50 px-2 py-1 rounded text-[10px] text-white">
+                Camera Preview
+              </div>
+            </div>
+          )}
+
         </div>
 
       </main>

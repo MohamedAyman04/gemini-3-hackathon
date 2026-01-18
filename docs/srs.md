@@ -39,6 +39,7 @@ VibeCheck operates as a **Firefox Extension** companion. Unlike traditional sess
 *   **FR-6: AI-Optimized Streaming**:
     *   **Audio**: Continuous low-latency stream to Gemini for intent/emotion detection.
     *   **Visual**: Random-access screenshots or low-FPS (1 FPS) feed to Gemini to provide visual context without excessive token usage.
+    *   **FR-6.5: User Camera Capture**: The system shall capture the user's camera (face) to analyze facial expressions and sentiment, providing a more complete picture of user frustration in addition to screen activity.
 
 ### 3.3 Real-Time Autonomous Intervention (The Brain)
 *   **FR-7: Emotion & Intent Detection**: The system shall utilize Gemini Live to detect tonal changes (frustration) AND explicit voice commands ("This button is broken", "Flag this bug").
