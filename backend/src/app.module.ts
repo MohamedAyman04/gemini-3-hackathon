@@ -8,13 +8,14 @@ import { MissionsModule } from './missions/missions.module';
 import { SessionsModule } from './sessions/sessions.module';
 import { AnalysisModule } from './analysis/analysis.module';
 import { GeminiModule } from './gemini/gemini.module';
+import { GeminiService } from './gemini/gemini.service';
 import { AuthModule } from './auth/auth.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: '../.env',
+      envFilePath: '.env',
     }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
@@ -47,6 +48,6 @@ import { AuthModule } from './auth/auth.module';
     AuthModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, GeminiService],
 })
 export class AppModule {}
