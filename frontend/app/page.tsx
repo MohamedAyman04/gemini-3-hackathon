@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   Play,
@@ -11,6 +11,7 @@ import {
   Clock,
   CheckCircle2,
   AlertCircle,
+  Activity,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -23,7 +24,7 @@ import {
   CardTitle,
 } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import { createMission, createSession } from "@/lib/api";
+import { createMission, createSession, getMissions } from "@/lib/api";
 
 export default function Dashboard() {
   const router = useRouter();
@@ -31,6 +32,19 @@ export default function Dashboard() {
   const [url, setUrl] = useState("");
   const [context, setContext] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [missions, setMissions] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchMissions = async () => {
+      try {
+        const data = await getMissions();
+        setMissions(data);
+      } catch (error) {
+        console.error("Failed to fetch missions:", error);
+      }
+    };
+    fetchMissions();
+  }, []);
 
   const handleLaunch = async () => {
     setIsLoading(true);
@@ -65,69 +79,83 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* New Mission Form */}
-        <div className="lg:col-span-2">
-          <Card className="h-full border-white/5 bg-slate-900/40">
-            <CardHeader className="bg-gradient-to-r from-violet-500/10 to-transparent">
-              <CardTitle className="flex items-center gap-2">
-                <div className="p-2 rounded-lg bg-violet-500/10 text-violet-400">
-                  <Play className="w-5 h-5" />
+        {/* System Overview */}
+        <div className="lg:col-span-2 space-y-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card className="border-white/5 bg-slate-900/40">
+              <CardHeader className="pb-2">
+                <CardDescription>Active Agents</CardDescription>
+                <CardTitle className="text-4xl">12</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-xs text-emerald-400 flex items-center gap-1">
+                  <ArrowRight className="w-3 h-3 -rotate-45" />
+                  <span>+2 from last hour</span>
                 </div>
-                New Testing Mission
+              </CardContent>
+            </Card>
+            <Card className="border-white/5 bg-slate-900/40">
+              <CardHeader className="pb-2">
+                <CardDescription>Hurdles Detected</CardDescription>
+                <CardTitle className="text-4xl">4</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-xs text-violet-400 flex items-center gap-1">
+                  <span>Running AI Analysis</span>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card className="border-white/5 bg-slate-900/40">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400">
+                  <Activity className="w-5 h-5" />
+                </div>
+                Live Mission Feed
               </CardTitle>
               <CardDescription>
-                Configure the target and objective for the autonomous agent.
+                Real-time activity from autonomous agents started via browser
+                extension.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6 pt-6">
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-300">
-                  Mission Name
-                </label>
-                <Input
-                  placeholder="e.g. Guest Checkout Flow"
-                  value={missionName}
-                  onChange={(e) => setMissionName(e.target.value)}
-                  icon={<FileText className="w-4 h-4" />}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-300">
-                  Target Application URL
-                </label>
-                <Input
-                  placeholder="https://staging.myapp.com"
-                  value={url}
-                  onChange={(e) => setUrl(e.target.value)}
-                  icon={<Globe className="w-4 h-4" />}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-300">
-                  Testing Context & Objectives
-                </label>
-                <textarea
-                  className="flex min-h-[120px] w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200 resize-none"
-                  placeholder="Describe what the user should achieve and any specific scenarios to test..."
-                  value={context}
-                  onChange={(e) => setContext(e.target.value)}
-                />
+            <CardContent className="px-0">
+              <div className="space-y-1">
+                {missions.length === 0 ? (
+                  <div className="px-6 py-8 text-center text-gray-500 text-sm">
+                    No active missions. Start one from the browser extension.
+                  </div>
+                ) : (
+                  missions.map((item, i) => (
+                    <div
+                      key={item.id}
+                      className="flex items-center justify-between px-6 py-4 hover:bg-white/5 transition-colors cursor-pointer border-l-2 border-transparent hover:border-violet-500"
+                      onClick={() => router.push(`/live/${item.id}`)}
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                        <div>
+                          <p className="text-sm font-medium text-gray-200">
+                            {item.name}
+                          </p>
+                          <p className="text-xs text-gray-500">{item.url}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-6">
+                        <div className="text-right hidden sm:block">
+                          <p className="text-xs text-gray-400">Status</p>
+                          <p className="text-xs text-emerald-400 font-medium">
+                            Monitoring
+                          </p>
+                        </div>
+                        <Badge variant="secondary">View Live</Badge>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </CardContent>
-            <CardFooter className="justify-end pt-4 pb-6">
-              <Button
-                size="lg"
-                className="w-full sm:w-auto"
-                onClick={handleLaunch}
-                isLoading={isLoading}
-                disabled={!url || !context || !missionName}
-              >
-                Initialize Agent
-                <ArrowRight className="ml-2 w-4 h-4" />
-              </Button>
-            </CardFooter>
           </Card>
         </div>
 
@@ -151,10 +179,17 @@ export default function Dashboard() {
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-400">Daily Quota</span>
-                  <span className="text-white">4/10 Sessions</span>
+                  <span className="text-white">
+                    {missions.length}/10 Sessions
+                  </span>
                 </div>
                 <div className="h-2 w-full rounded-full bg-slate-800">
-                  <div className="h-full w-[40%] rounded-full bg-violet-500" />
+                  <div
+                    className="h-full rounded-full bg-violet-500 transition-all"
+                    style={{
+                      width: `${Math.min((missions.length / 10) * 100, 100)}%`,
+                    }}
+                  />
                 </div>
               </div>
             </CardContent>
@@ -166,52 +201,38 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent className="px-0 py-2">
               <div className="space-y-1">
-                {[
-                  {
-                    name: "Login Flow V2",
-                    time: "2h ago",
-                    status: "completed",
-                    issues: 2,
-                  },
-                  {
-                    name: "Dashboard Perf",
-                    time: "5h ago",
-                    status: "failed",
-                    issues: 0,
-                  },
-                  {
-                    name: "Onboarding",
-                    time: "1d ago",
-                    status: "completed",
-                    issues: 5,
-                  },
-                ].map((item, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center justify-between px-6 py-3 hover:bg-white/5 transition-colors cursor-pointer border-l-2 border-transparent hover:border-violet-500"
-                  >
-                    <div className="flex items-center gap-3">
-                      {item.status === "completed" ? (
-                        <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                      ) : (
-                        <AlertCircle className="w-4 h-4 text-red-500" />
-                      )}
-                      <div>
-                        <p className="text-sm font-medium text-gray-200">
-                          {item.name}
-                        </p>
-                        <p className="text-xs text-gray-500">{item.time}</p>
-                      </div>
-                    </div>
-                    <Badge variant={item.issues > 0 ? "warning" : "secondary"}>
-                      {item.issues} Issues
-                    </Badge>
+                {missions.length === 0 ? (
+                  <div className="px-6 py-8 text-center text-gray-500 text-sm">
+                    No missions found. Create your first mission to get started.
                   </div>
-                ))}
+                ) : (
+                  missions.slice(0, 5).map((item, i) => (
+                    <div
+                      key={item.id}
+                      className="flex items-center justify-between px-6 py-3 hover:bg-white/5 transition-colors cursor-pointer border-l-2 border-transparent hover:border-violet-500"
+                    >
+                      <div className="flex items-center gap-3">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                        <div>
+                          <p className="text-sm font-medium text-gray-200">
+                            {item.name}
+                          </p>
+                          <p className="text-xs text-gray-500">{item.url}</p>
+                        </div>
+                      </div>
+                      <Badge variant="secondary">Active</Badge>
+                    </div>
+                  ))
+                )}
               </div>
             </CardContent>
             <CardFooter>
-              <Button variant="ghost" size="sm" className="w-full text-xs">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full text-xs"
+                onClick={() => router.push("/sessions")}
+              >
                 View All History
               </Button>
             </CardFooter>

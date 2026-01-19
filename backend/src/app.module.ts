@@ -8,11 +8,13 @@ import { MissionsModule } from './missions/missions.module';
 import { SessionsModule } from './sessions/sessions.module';
 import { AnalysisModule } from './analysis/analysis.module';
 import { GeminiModule } from './gemini/gemini.module';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+      envFilePath: '../.env',
     }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
@@ -33,7 +35,7 @@ import { GeminiModule } from './gemini/gemini.module';
       useFactory: (configService: ConfigService) => ({
         connection: {
           host: configService.get<string>('REDIS_HOST', 'localhost'),
-          port: configService.get<number>('REDIS_PORT', 6379),
+          port: configService.get<number>('REDIS_PORT', 6380),
         },
       }),
       inject: [ConfigService],
@@ -42,6 +44,7 @@ import { GeminiModule } from './gemini/gemini.module';
     SessionsModule,
     AnalysisModule,
     GeminiModule,
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [AppService],

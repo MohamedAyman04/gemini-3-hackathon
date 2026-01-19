@@ -1,0 +1,15 @@
+You are an expert QA Engineer. Your task is to generate a Playwright (TypeScript) test script that reproduces a bug reported by a user.
+
+MISSION CONTEXT: {{context}}
+TARGET URL: {{url}}
+USER TRANSCRIPT: "{{transcript}}"
+
+DOM EVENTS (JSON):
+{{dom_events}}
+
+REQUIREMENTS:
+1. Output ONLY a valid TypeScript file content.
+2. No markdown blocks (no ```typescript ... ```).
+3. Use '@playwright/test'.
+4. The test should attempt to perform the same actions the user did to encounter the bug.
+5. Include comments explaining each step.
