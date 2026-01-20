@@ -1,15 +1,15 @@
-You are an expert QA Engineer. Your task is to generate a Playwright (TypeScript) test script that reproduces a bug reported by a user.
+You are an expert QA Automation Engineer.
+Your goal is to generate a Playwright (TypeScript) script to reproduce a reported bug.
 
-MISSION CONTEXT: {{context}}
-TARGET URL: {{url}}
-USER TRANSCRIPT: "{{transcript}}"
+CONTEXT: {{context}}
+URL: {{url}}
+USER TRANSCRIPT: {{transcript}}
 
-DOM EVENTS (JSON):
+DOM EVENTS DATA:
 {{dom_events}}
 
-REQUIREMENTS:
-1. Output ONLY a valid TypeScript file content.
-2. No markdown blocks (no ```typescript ... ```).
-3. Use '@playwright/test'.
-4. The test should attempt to perform the same actions the user did to encounter the bug.
-5. Include comments explaining each step.
+INSTRUCTIONS:
+1. Write a complete Playwright test using @playwright/test.
+2. Follow the user's steps exactly as described in the transcript and DOM events.
+3. Use 'expect' to assert that the bug or expected state occurs.
+4. Output ONLY the TypeScript code, no markdown formatting.

@@ -1,9 +1,14 @@
 import { Controller, Post, Body, Get } from '@nestjs/common';
 import { GeminiService } from '../gemini/gemini.service';
+import { ConfigService } from '@nestjs/config';
+import { Octokit } from 'octokit';
 
 @Controller('analysis')
 export class AnalysisController {
-  constructor(private readonly geminiService: GeminiService) {}
+  constructor(
+    private readonly geminiService: GeminiService,
+    private readonly configService: ConfigService,
+  ) {}
 
   @Get('health')
   health() {
@@ -42,6 +47,50 @@ export class AnalysisController {
         error: error.message,
         errorType: error.name,
         details: error.toString(),
+      };
+    }
+  }
+
+  @Post('test-github')
+  async testGithub(@Body() data: any) {
+    try {
+      console.log('=== GitHub Test Request Started ===');
+      const token = this.configService.get<string>('GITHUB_TOKEN');
+      if (!token) {
+        throw new Error('GITHUB_TOKEN not found in environment');
+      }
+
+      const octokit = new Octokit({ auth: token });
+      const repoPath = this.configService.get<string>(
+        'GITHUB_REPO',
+        'MohamedAyman04/gemini-3-hackathon',
+      );
+      const [owner, repo] = repoPath.split('/');
+
+      console.log(`Attempting to create issue in ${owner}/${repo}`);
+
+      const { data: issue } = await octokit.rest.issues.create({
+        owner,
+        repo,
+        title: data.title || '[Test Issue] GitHub Token Verification',
+        body:
+          data.body ||
+          'This is a test issue created to verify that the GITHUB_TOKEN is working correctly.',
+      });
+
+      console.log('=== GitHub Issue Created Successfully ===');
+      return {
+        success: true,
+        issueUrl: issue.html_url,
+        issueNumber: issue.number,
+      };
+    } catch (error) {
+      console.error('=== GitHub Test Error ===');
+      console.error(error);
+      return {
+        success: false,
+        error: error.message,
+        details: error.response?.data || error.toString(),
       };
     }
   }
