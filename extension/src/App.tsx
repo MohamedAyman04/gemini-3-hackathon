@@ -1,13 +1,32 @@
 import { useRef, useEffect, useState } from 'react';
-import { Mic, MicOff, Radio, Activity, Bug, LogIn, Video, VideoOff } from 'lucide-react';
+import { Mic, MicOff, Radio, Activity, Bug, LogIn, Video, VideoOff, Target } from 'lucide-react';
 import { useMediaRecorder } from './hooks/useMediaRecorder';
 import { useAuth } from './hooks/useAuth';
+import { useMissions } from './hooks/useMissions';
+import { useSocket } from './hooks/useSocket';
+
+const DASHBOARD_URL = import.meta.env.VITE_DASHBOARD_URL || 'http://localhost:3000';
 
 function App() {
   const { isRecording, startRecording, stopRecording, toggleAudio, toggleVideo, isAudioEnabled, isVideoEnabled, audioData, error, devices, selectedAudioId, setSelectedAudioId, selectedVideoId, setSelectedVideoId, stream, checkPermissions, permissionError } = useMediaRecorder();
   const { isAuthenticated, isLoading, user, login, debugLogin } = useAuth();
+  const { missions, isLoading: missionsLoading } = useMissions();
+  const { socket, connectSocket, disconnectSocket, consumeAudio } = useSocket();
+  const [selectedMissionId, setSelectedMissionId] = useState<string>('');
+  const [sessionError, setSessionError] = useState<string | null>(null);
+
   const [hurdles] = useState<string[]>([]);
   const videoRef = useRef<HTMLVideoElement>(null);
+
+  // Audio Playback State
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const nextStartTimeRef = useRef<number>(0);
+
+  useEffect(() => {
+    if (missions.length > 0 && !selectedMissionId) {
+      setSelectedMissionId(missions[0].id);
+    }
+  }, [missions, selectedMissionId]);
 
   useEffect(() => {
     if (videoRef.current && stream) {
@@ -15,11 +34,114 @@ function App() {
     }
   }, [stream, isVideoEnabled]);
 
-  const toggleConnection = async () => {
+  // Audio Player Loop
+  useEffect(() => {
+    const processQueue = async () => {
+      const chunk = consumeAudio();
+      if (chunk) {
+        if (!audioContextRef.current) {
+          audioContextRef.current = new AudioContext({ sampleRate: 24000 });
+        }
+        const ctx = audioContextRef.current;
+
+        try {
+          const binaryString = window.atob(chunk);
+          const len = binaryString.length;
+          const bytes = new Uint8Array(len);
+          for (let i = 0; i < len; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+          }
+
+          const int16 = new Int16Array(bytes.buffer);
+          const float32 = new Float32Array(int16.length);
+          for (let i = 0; i < int16.length; i++) {
+            float32[i] = int16[i] / 32768;
+          }
+
+          const audioBuffer = ctx.createBuffer(1, float32.length, 24000);
+          audioBuffer.copyToChannel(float32, 0);
+
+          const source = ctx.createBufferSource();
+          source.buffer = audioBuffer;
+          source.connect(ctx.destination);
+
+          const currentTime = ctx.currentTime;
+          let startTime = nextStartTimeRef.current;
+          if (startTime < currentTime) startTime = currentTime;
+
+          source.start(startTime);
+          nextStartTimeRef.current = startTime + audioBuffer.duration;
+
+        } catch (e) {
+          console.error("Error playing audio chunk", e);
+        }
+      }
+
+      if (isRecording) {
+        requestAnimationFrame(processQueue);
+      }
+    };
+
     if (isRecording) {
+      processQueue();
+    }
+
+    return () => {
+      if (!isRecording && audioContextRef.current) {
+        audioContextRef.current.close().catch(() => { });
+        audioContextRef.current = null;
+      }
+    }
+  }, [isRecording, consumeAudio]);
+
+  const [pendingSession, setPendingSession] = useState(false);
+
+  // Effect to actually start recording once socket is ready
+  useEffect(() => {
+    if (pendingSession && socket?.connected) {
+      startRecording(socket).then(() => {
+        setPendingSession(false);
+      });
+    }
+  }, [pendingSession, socket, startRecording]);
+
+  const toggleConnection = async () => {
+    setSessionError(null);
+    if (isRecording) {
+      // Stopping
       stopRecording();
+      disconnectSocket();
     } else {
-      await startRecording();
+      // Starting
+      if (!selectedMissionId) {
+        setSessionError("Please select a mission first.");
+        return;
+      }
+
+      try {
+        // Create Session on Backend
+        const response = await fetch(`${DASHBOARD_URL}/sessions`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ missionId: selectedMissionId })
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to create session on backend');
+        }
+
+        const sessionData = await response.json();
+
+        // Connect Socket
+        connectSocket(sessionData.id);
+        setPendingSession(true);
+
+      } catch (err: any) {
+        console.error("Failed to start session:", err);
+        setSessionError(err.message || "Failed to start session");
+      }
     }
   };
 
@@ -109,6 +231,14 @@ function App() {
           </button>
         </div>
 
+        {/* Session Error */}
+        {sessionError && (
+          <div className="text-red-400 text-xs bg-red-900/20 px-3 py-1 rounded border border-red-800/50">
+            {sessionError}
+          </div>
+        )}
+
+
         {/* Audio Visualizer Placeholder */}
         <div className="w-full h-16 bg-gray-800/50 rounded-lg flex items-end justify-center gap-1 overflow-hidden border border-gray-800/50 p-2">
           {error && (
@@ -147,8 +277,40 @@ function App() {
           )}
         </div>
 
-        {/* Input Controls */}
-        <div className="flex flex-col gap-4 w-full">
+        {/* Controls Grid */}
+        <div className="flex flex-col gap-3 w-full">
+
+          {/* Mission Selection */}
+          <div className="flex items-center gap-2 w-full">
+            <div className="p-3 bg-gray-800 text-gray-400 border border-gray-700 rounded-lg">
+              <Target className="w-5 h-5" />
+            </div>
+            <div className="relative flex-1">
+              <select
+                value={selectedMissionId}
+                onChange={(e) => setSelectedMissionId(e.target.value)}
+                disabled={isRecording || missionsLoading}
+                className="w-full bg-gray-800 text-xs text-gray-300 rounded-lg border border-gray-700 px-3 py-3 focus:outline-none focus:border-purple-500 appearance-none truncate disabled:opacity-50"
+              >
+                {missionsLoading ? (
+                  <option>Loading missions...</option>
+                ) : missions.length === 0 ? (
+                  <option value="">No Active Missions</option>
+                ) : (
+                  missions.map((mission) => (
+                    <option key={mission.id} value={mission.id}>
+                      {mission.name}
+                    </option>
+                  ))
+                )}
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
+                <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" /></svg>
+              </div>
+            </div>
+          </div>
+
+          {/* Audio Input */}
           <div className="flex items-center gap-2 w-full">
             <button
               onClick={toggleAudio}

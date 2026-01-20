@@ -1,9 +1,11 @@
 /// <reference types="chrome" />
 import { useState, useRef, useEffect, useCallback } from 'react';
+import type { Socket } from 'socket.io-client';
+import { downsample, convertFloat32ToInt16 } from '../utils/audioUtils';
 
-interface UseMediaRecorderReturn {
+export interface UseMediaRecorderReturn {
     isRecording: boolean;
-    startRecording: () => Promise<void>;
+    startRecording: (socket?: Socket | null) => Promise<void>;
     stopRecording: () => void;
     toggleAudio: () => void;
     toggleVideo: () => void;
@@ -87,6 +89,14 @@ export const useMediaRecorder = (): UseMediaRecorderReturn => {
         if (sourceRef.current) {
             sourceRef.current.disconnect();
             sourceRef.current = null;
+        }
+        if (processorRef.current) {
+            processorRef.current.disconnect();
+            processorRef.current = null;
+        }
+        if (videoIntervalRef.current) {
+            clearInterval(videoIntervalRef.current);
+            videoIntervalRef.current = null;
         }
         if (audioContextRef.current) {
             audioContextRef.current.close().catch(() => { });
@@ -175,7 +185,14 @@ export const useMediaRecorder = (): UseMediaRecorderReturn => {
         setStream(new MediaStream(streamRef.current.getTracks()));
     };
 
-    const startRecording = async () => {
+    const processorRef = useRef<ScriptProcessorNode | null>(null);
+    const videoIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+    // Lazy load Utils to avoid issues if files missing during refactor (though we just created them)
+    // Actually better to import them at top. Added imports at top of file.
+
+    const startRecording = async (socket?: Socket | null) => {
         setError(null);
         try {
             setIsAudioEnabled(true);
@@ -189,14 +206,79 @@ export const useMediaRecorder = (): UseMediaRecorderReturn => {
 
             const tabs = await chrome.tabs.query({ active: true, currentWindow: false, windowType: 'normal' });
             const targetTab = tabs[0];
-            if (!targetTab?.id) throw new Error("No active browser tab found.");
-
-            await chrome.tabs.sendMessage(targetTab.id, {
-                type: 'START_RECORDING',
-                timestamp: Date.now()
-            });
+            if (targetTab?.id) {
+                // Best effort signaling
+                chrome.tabs.sendMessage(targetTab.id, {
+                    type: 'START_RECORDING',
+                    timestamp: Date.now()
+                }).catch(() => { /* Content script might not be ready, ignore */ });
+            }
 
             setIsRecording(true);
+
+            // --- Streaming Logic ---
+            if (socket) {
+                // 1. Audio Streaming
+                if (!audioContextRef.current) {
+                    audioContextRef.current = new AudioContext();
+                }
+                const ctx = audioContextRef.current;
+
+                // Re-create source for processing if needed (analyser setup might have done it)
+                // We need a source that persists for the processor
+                const processSource = ctx.createMediaStreamSource(newStream);
+
+                // Buffer size 4096 = ~92ms at 44.1kHz. 
+                // We want ~250ms chunks ideally for Gemini? Or smaller for realtime? 
+                // 4096 is standard for ScriptProcessor. 
+                const processor = ctx.createScriptProcessor(4096, 1, 1);
+                processorRef.current = processor;
+
+                processor.onaudioprocess = (e) => {
+                    if (!socket.connected) return;
+
+                    const inputData = e.inputBuffer.getChannelData(0);
+                    // Downsample to 16kHz
+                    const downsampled = downsample(inputData, ctx.sampleRate, 16000);
+                    const pcm16 = convertFloat32ToInt16(downsampled);
+
+                    // Send as base64 or buffer? Socket.io handles binary well usually.
+                    // Gemini Service expects: "mediaChunks: [{ ... data: base64 }]"
+                    // Gateway expects: "session.geminiSession.sendAudio(buffer)"
+                    // Let's send raw buffer to gateway, gateway handles it.
+                    socket.emit('audio_chunk', pcm16.buffer);
+                };
+
+                processSource.connect(processor);
+                processor.connect(ctx.destination); // ScriptProcessor needs to be connected to destination to fire
+
+                // 2. Video Streaming
+                if (!canvasRef.current) {
+                    canvasRef.current = document.createElement('canvas');
+                    canvasRef.current.width = 640; // 360p or 480p is enough for AI
+                    canvasRef.current.height = 360;
+                }
+                const canvas = canvasRef.current;
+                const canvasCtx = canvas.getContext('2d');
+
+                // Create a video element to grab frames from stream (since we can't grab from MediaStreamTrack directly easily without ImageCapture API which is flaky)
+                const vid = document.createElement('video');
+                vid.srcObject = newStream;
+                vid.muted = true;
+                await vid.play();
+
+                videoIntervalRef.current = setInterval(() => {
+                    if (!socket.connected || !canvasCtx) return;
+
+                    if (vid.readyState === vid.HAVE_ENOUGH_DATA) {
+                        canvasCtx.drawImage(vid, 0, 0, canvas.width, canvas.height);
+                        // Quality 0.5 for speed
+                        const dataUrl = canvas.toDataURL('image/jpeg', 0.5);
+                        const base64 = dataUrl.split(',')[1];
+                        socket.emit('screen_frame', { frame: base64 });
+                    }
+                }, 1000); // 1 FPS
+            }
 
         } catch (err: any) {
             console.error("Error starting recording:", err);
