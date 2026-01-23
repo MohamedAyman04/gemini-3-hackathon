@@ -2,17 +2,53 @@ import { Controller, Post, Body, Get } from '@nestjs/common';
 import { GeminiService } from '../gemini/gemini.service';
 import { ConfigService } from '@nestjs/config';
 import { Octokit } from 'octokit';
+import { JiraService } from '../jira/jira.service';
+import { TrelloService } from '../trello/trello.service';
 
 @Controller('analysis')
 export class AnalysisController {
   constructor(
     private readonly geminiService: GeminiService,
     private readonly configService: ConfigService,
+    private readonly jiraService: JiraService,
+    private readonly trelloService: TrelloService,
   ) {}
 
   @Get('health')
   health() {
     return { status: 'ok', message: 'Analysis controller is working' };
+  }
+
+  @Post('test-jira')
+  async testJira(@Body() data: any) {
+    try {
+      console.log('=== Jira Test Request Started ===');
+      const result = await this.jiraService.createIssue(
+        data.title || '[Test Issue] Jira Token Verification',
+        data.body ||
+          'This is a test issue created to verify that the Jira integration is working correctly.',
+        data.projectKey,
+      );
+
+      if (result.success) {
+        console.log('=== Jira Issue Created Successfully ===');
+        return {
+          success: true,
+          issueKey: result.key,
+          issueUrl: result.self,
+        };
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error) {
+      console.error('=== Jira Test Error ===');
+      console.error(error);
+      return {
+        success: false,
+        error: error.message,
+        details: error.toString(),
+      };
+    }
   }
 
   @Post('test-ai')
@@ -91,6 +127,38 @@ export class AnalysisController {
         success: false,
         error: error.message,
         details: error.response?.data || error.toString(),
+      };
+    }
+  }
+
+  @Post('test-trello')
+  async testTrello(@Body() data: any) {
+    try {
+      console.log('=== Trello Test Request Started ===');
+      const result = await this.trelloService.createCard(
+        data.title || '[Test Issue] Trello Token Verification',
+        data.body ||
+          'This is a test card created to verify that the Trello integration is working correctly.',
+        data.listId,
+      );
+
+      if (result.success) {
+        console.log('=== Trello Card Created Successfully ===');
+        return {
+          success: true,
+          cardId: result.id,
+          cardUrl: result.url,
+        };
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error) {
+      console.error('=== Trello Test Error ===');
+      console.error(error);
+      return {
+        success: false,
+        error: error.message,
+        details: error.toString(),
       };
     }
   }

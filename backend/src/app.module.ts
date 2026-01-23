@@ -10,6 +10,8 @@ import { AnalysisModule } from './analysis/analysis.module';
 import { GeminiModule } from './gemini/gemini.module';
 import { GeminiService } from './gemini/gemini.service';
 import { AuthModule } from './auth/auth.module';
+import { JiraModule } from './jira/jira.module';
+import { TrelloModule } from './trello/trello.module';
 
 @Module({
   imports: [
@@ -46,6 +48,8 @@ import { AuthModule } from './auth/auth.module';
     AnalysisModule,
     GeminiModule,
     AuthModule,
+    JiraModule,
+    TrelloModule,
   ],
   controllers: [AppController],
   providers: [AppService, GeminiService],

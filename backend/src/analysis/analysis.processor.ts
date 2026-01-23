@@ -7,6 +7,8 @@ import * as path from 'path';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { Octokit } from 'octokit';
+import { JiraService } from '../jira/jira.service';
+import { TrelloService } from '../trello/trello.service';
 
 const execAsync = promisify(exec);
 
@@ -17,6 +19,8 @@ export class AnalysisProcessor extends WorkerHost {
   constructor(
     private readonly geminiService: GeminiService,
     private readonly configService: ConfigService,
+    private readonly jiraService: JiraService,
+    private readonly trelloService: TrelloService,
   ) {
     super();
     const token = this.configService.get<string>('GITHUB_TOKEN');
@@ -48,21 +52,9 @@ export class AnalysisProcessor extends WorkerHost {
 
     console.log(`Script generated at: ${filePath}`);
 
-    // 3. Create GitHub Issue
-    let issueUrl = '';
-    if (this.octokit) {
-      try {
-        const repo = this.configService.get<string>(
-          'GITHUB_REPO',
-          'MohamedAyman04/gemini-3-hackathon',
-        );
-        const [owner, name] = repo.split('/');
-
-        const { data: issue } = await this.octokit.rest.issues.create({
-          owner,
-          repo: name,
-          title: `[Bug Report] Hurdle detected in session ${sessionId || job.id}`,
-          body: `
+    const platforms = job.data.platforms || ['github', 'jira']; // Default to both if not specified
+    const title = `[Bug Report] Hurdle detected in session ${sessionId || job.id}`;
+    const commonDescription = `
 ### Hurdle Context
 - **URL:** ${url}
 - **Session ID:** ${sessionId}
@@ -74,7 +66,23 @@ ${script}
 \`\`\`
 
 *Generated automatically by VibeCheck Brain*
-          `,
+    `;
+
+    // 3. Create GitHub Issue
+    let issueUrl = '';
+    if (platforms.includes('github') && this.octokit) {
+      try {
+        const repo = this.configService.get<string>(
+          'GITHUB_REPO',
+          'MohamedAyman04/gemini-3-hackathon',
+        );
+        const [owner, name] = repo.split('/');
+
+        const { data: issue } = await this.octokit.rest.issues.create({
+          owner,
+          repo: name,
+          title: title,
+          body: commonDescription,
         });
         issueUrl = issue.html_url;
         console.log(`GitHub Issue created: ${issueUrl}`);
@@ -83,7 +91,51 @@ ${script}
       }
     }
 
-    // 4. Execute Playwright (Optional/Async)
+    // 4. Create Jira Issue
+    let jiraIssueKey = '';
+    if (platforms.includes('jira')) {
+      try {
+        const jiraResult = await this.jiraService.createIssue(
+          title,
+          `Hurdle Context:
+- URL: ${url}
+- Session ID: ${sessionId}
+- Transcript: ${transcript}
+
+Reproduction script generated and available in GitHub issue: ${issueUrl || 'N/A'}`,
+        );
+        if (jiraResult.success) {
+          jiraIssueKey = jiraResult.key;
+          console.log(`Jira Issue created: ${jiraIssueKey}`);
+        }
+      } catch (error) {
+        console.error('Failed to create Jira issue', error);
+      }
+    }
+
+    // 5. Create Trello Card
+    let trelloCardUrl = '';
+    if (platforms.includes('trello')) {
+      try {
+        const trelloResult = await this.trelloService.createCard(
+          title,
+          `Hurdle Context:
+- URL: ${url}
+- Session ID: ${sessionId}
+- Transcript: ${transcript}
+
+Reproduction script generated and available in GitHub issue: ${issueUrl || 'N/A'}`,
+        );
+        if (trelloResult.success) {
+          trelloCardUrl = trelloResult.url;
+          console.log(`Trello Card created: ${trelloCardUrl}`);
+        }
+      } catch (error) {
+        console.error('Failed to create Trello card', error);
+      }
+    }
+
+    // 6. Execute Playwright (Optional/Async)
     try {
       console.log(`Executing test: ${filePath}`);
       // In a real environment, we would run this in a container.
@@ -93,6 +145,8 @@ ${script}
         status: 'success',
         filePath,
         issueUrl,
+        jiraIssueKey,
+        trelloCardUrl,
         scriptPreview: script.substring(0, 500) + '...',
       };
     } catch (error) {
