@@ -20,6 +20,9 @@
             "strict_min_version": "109.0"
         }
     },
+    "content_security_policy": {
+        "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' http://localhost:5000 ws://localhost:5000;"
+    },
     "background": {
         "scripts": [
             "src/background.ts"

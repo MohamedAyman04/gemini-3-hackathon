@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 
-const DASHBOARD_URL = import.meta.env.VITE_DASHBOARD_URL || 'http://localhost:3000';
+const DASHBOARD_URL = import.meta.env.VITE_DASHBOARD_URL || 'http://localhost:5000';
 
 interface UseSocketReturn {
     socket: Socket | null;
@@ -10,6 +10,7 @@ interface UseSocketReturn {
     disconnectSocket: () => void;
     audioQueue: string[]; // Base64 strings from AI
     consumeAudio: () => string | undefined;
+    messages: { text: string; source: 'ai' | 'user' }[];
 }
 
 export const useSocket = (): UseSocketReturn => {
@@ -21,6 +22,8 @@ export const useSocket = (): UseSocketReturn => {
     // Trigger re-render if needed or just expose method? 
     // For audio playback loop, direct ref access is better.
     // We expose a dummy state to maybe show "Queue size"? Optional.
+
+    const [messages, setMessages] = useState<{ text: string; source: 'ai' | 'user' }[]>([]);
 
     const connectSocket = useCallback((sessionId: string) => {
         if (socket?.connected) return;
@@ -34,7 +37,7 @@ export const useSocket = (): UseSocketReturn => {
         newSocket.on('connect', () => {
             console.log('Socket connected:', newSocket.id);
             setIsConnected(true);
-            newSocket.emit('join_session', { sessionId });
+            newSocket.emit('join_session', { sessionId, type: 'host' });
         });
 
         newSocket.on('disconnect', () => {
@@ -52,6 +55,11 @@ export const useSocket = (): UseSocketReturn => {
             audioQueueRef.current.push(data.audio);
         });
 
+        newSocket.on('ai_text', (data: { text: string }) => {
+            console.log("AI Text:", data.text);
+            setMessages(prev => [...prev, { text: data.text, source: 'ai' }]);
+        });
+
         newSocket.on('ai_intervention', (data: { type: string }) => {
             console.log("AI Intervention:", data.type);
             // Handle later (e.g. show toast)
@@ -66,6 +74,7 @@ export const useSocket = (): UseSocketReturn => {
             setSocket(null);
             setIsConnected(false);
             audioQueueRef.current = [];
+            setMessages([]);
         }
     }, [socket]);
 
@@ -88,6 +97,7 @@ export const useSocket = (): UseSocketReturn => {
         connectSocket,
         disconnectSocket,
         audioQueue: audioQueueRef.current, // Helper, might be stale in UI but ok for debug
-        consumeAudio
+        consumeAudio,
+        messages
     };
 };

@@ -10,7 +10,7 @@ export class MissionsService {
   constructor(
     @InjectRepository(Mission)
     private missionsRepository: Repository<Mission>,
-  ) {}
+  ) { }
 
   create(createMissionDto: CreateMissionDto) {
     const mission = this.missionsRepository.create(createMissionDto);
@@ -18,7 +18,10 @@ export class MissionsService {
   }
 
   findAll() {
-    return this.missionsRepository.find();
+    return this.missionsRepository.find({
+      relations: ['sessions'],
+      order: { createdAt: 'DESC' },
+    });
   }
 
   findOne(id: string) {

@@ -14,7 +14,7 @@ interface AuthState {
     error: string | null;
 }
 
-const DASHBOARD_URL = import.meta.env.VITE_DASHBOARD_URL || 'http://localhost:3000';
+const DASHBOARD_URL = import.meta.env.VITE_DASHBOARD_URL || 'http://localhost:5000';
 const AUTH_COOKIE_NAME = import.meta.env.VITE_AUTH_COOKIE_NAME || 'connect.sid';
 
 export const useAuth = () => {

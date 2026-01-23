@@ -158,10 +158,40 @@ export class GeminiService implements OnModuleInit {
     }
   }
 
+  async generateSessionSummary(transcript: string, logs: any[]): Promise<string> {
+    try {
+      const prompt = `
+        You are an expert user researcher.
+        Analyze the following session data and provide a concise summary of the user's experience.
+        Focus on:
+        1. Key actions performed.
+        2. any frustrations or bugs encountered.
+        3. Overall sentiment.
+
+        TRANSCRIPT:
+        ${transcript || 'No transcript available.'}
+
+        LOGS (First 50 events):
+        ${JSON.stringify(logs.slice(0, 50), null, 2)}
+      `;
+
+      const response = await this.genAI.models.generateContent({
+        model: 'gemini-1.5-flash',
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      });
+
+      return response.text || 'No summary generated.';
+    } catch (error) {
+      this.logger.error('Session summary generation failed', error);
+      return 'Failed to generate summary.';
+    }
+  }
+
   createLiveSession(
     sessionId: string,
     onAudioDelta: (audio: string) => void,
     onIntervention: (trigger: string) => void,
+    onText: (text: string) => void,
     missionContext: { url?: string; context?: string } = {},
   ) {
     this.logger.log(`Creating Live Session for ${sessionId}`);
@@ -198,7 +228,13 @@ export class GeminiService implements OnModuleInit {
       if (audio) onAudioDelta(audio);
 
       const text = response.serverContent?.modelTurn?.parts?.[0]?.text;
-      if (text?.includes('REPORT_BUG')) onIntervention('REPORT_BUG');
+      if (text) {
+        if (text.includes('REPORT_BUG')) {
+          onIntervention('REPORT_BUG');
+        } else {
+          onText(text);
+        }
+      }
     });
 
     return {
@@ -215,6 +251,22 @@ export class GeminiService implements OnModuleInit {
                 ],
               },
             }),
+          );
+        }
+      },
+      sendImage: (chunk: Buffer) => {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(
+            JSON.stringify({
+              realtimeInput: {
+                mediaChunks: [
+                  {
+                    mimeType: 'image/jpeg',
+                    data: chunk.toString('base64'),
+                  },
+                ],
+              },
+            })
           );
         }
       },

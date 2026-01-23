@@ -26,7 +26,7 @@ import { AuthModule } from './auth/auth.module';
         username: configService.get<string>('POSTGRES_USER', 'postgres'),
         password: configService.get<string>('POSTGRES_PASSWORD', 'postgres'),
         database: configService.get<string>('POSTGRES_DB', 'vibecheck'),
-        entities: [__dirname + '/**/*.entity{.ts,.js}'],
+        autoLoadEntities: true,
         synchronize: true, // For development only
       }),
       inject: [ConfigService],
@@ -50,4 +50,4 @@ import { AuthModule } from './auth/auth.module';
   controllers: [AppController],
   providers: [AppService, GeminiService],
 })
-export class AppModule {}
+export class AppModule { }

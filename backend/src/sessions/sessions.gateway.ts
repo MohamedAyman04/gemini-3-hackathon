@@ -19,8 +19,7 @@ import { Queue } from 'bullmq';
   },
 })
 export class SessionsGateway
-  implements OnGatewayConnection, OnGatewayDisconnect
-{
+  implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
 
@@ -30,7 +29,7 @@ export class SessionsGateway
     private readonly sessionsService: SessionsService,
     private readonly geminiService: GeminiService,
     @InjectQueue('analysis') private analysisQueue: Queue,
-  ) {}
+  ) { }
 
   handleConnection(client: Socket) {
     console.log(`Client connected: ${client.id}`);
@@ -38,10 +37,12 @@ export class SessionsGateway
 
   handleDisconnect(client: Socket) {
     console.log(`Client disconnected: ${client.id}`);
-    // Cleanup Gemini session if exists
+    // Cleanup Gemini session if Host disconnects
     for (const [sessionId, sessionData] of this.activeSessions.entries()) {
-      if (sessionData.clientId === client.id) {
+      if (sessionData.hostId === client.id) {
+        console.log(`Host left session ${sessionId}. Cleaning up Gemini.`);
         sessionData.geminiSession.close();
+        this.sessionsService.update(sessionId, { status: 'COMPLETED' });
         this.activeSessions.delete(sessionId);
       }
     }
@@ -49,10 +50,25 @@ export class SessionsGateway
 
   @SubscribeMessage('join_session')
   async handleJoinSession(
-    @MessageBody() data: { sessionId: string },
+    @MessageBody() data: { sessionId: string; type?: 'host' | 'viewer' },
     @ConnectedSocket() client: Socket,
   ) {
-    console.log(`Client ${client.id} joining session ${data.sessionId}`);
+    console.log(`Client ${client.id} joining session ${data.sessionId} as ${data.type || 'unknown'}`);
+
+    // If session is already active
+    if (this.activeSessions.has(data.sessionId)) {
+      client.join(data.sessionId);
+      console.log(`Session ${data.sessionId} active. Client ${client.id} joined as ${data.type || 'viewer'}.`);
+      return { status: 'joined', sessionId: data.sessionId, role: data.type || 'viewer' };
+    }
+
+    // If not active, only HOST can start it
+    if (data.type === 'viewer') {
+      console.warn(`Viewer ${client.id} tried to join inactive session ${data.sessionId}`);
+      return { status: 'error', message: 'Session not active' };
+    }
+
+    // Assume Host (or unknown) is starting the session
     client.join(data.sessionId);
 
     // Fetch session and mission details
@@ -63,12 +79,16 @@ export class SessionsGateway
     const geminiSession = this.geminiService.createLiveSession(
       data.sessionId,
       (audioBase64) => {
-        // Emit back to extension for playback
-        client.emit('ai_audio', { audio: audioBase64 });
+        // Emit to ALL clients in the room (Host + Viewers)
+        this.server.to(data.sessionId).emit('ai_audio', { audio: audioBase64 });
       },
       (trigger) => {
         // AI detected a hurdle
-        client.emit('ai_intervention', { type: trigger });
+        this.server.to(data.sessionId).emit('ai_intervention', { type: trigger });
+      },
+      (text) => {
+        // AI sent a text reply
+        this.server.to(data.sessionId).emit('ai_text', { text });
       },
       {
         url: mission?.url,
@@ -77,11 +97,15 @@ export class SessionsGateway
     );
 
     this.activeSessions.set(data.sessionId, {
-      clientId: client.id,
+      hostId: client.id,
       geminiSession,
     });
 
-    return { status: 'joined', sessionId: data.sessionId };
+    // Update status in DB
+    await this.sessionsService.update(data.sessionId, { status: 'RUNNING' });
+
+    console.log(`Session ${data.sessionId} started by host ${client.id}`);
+    return { status: 'joined', sessionId: data.sessionId, role: 'host' };
   }
 
   @SubscribeMessage('audio_chunk')
@@ -108,6 +132,9 @@ export class SessionsGateway
       const session = this.activeSessions.get(sessionId);
       const buffer = Buffer.from(data.frame, 'base64');
       session.geminiSession.sendImage(buffer);
+
+      // Broadcast to frontend viewers
+      this.server.to(sessionId).emit('screen_frame', data);
     }
   }
 

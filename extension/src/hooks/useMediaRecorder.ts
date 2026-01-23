@@ -7,6 +7,7 @@ export interface UseMediaRecorderReturn {
     isRecording: boolean;
     startRecording: (socket?: Socket | null) => Promise<void>;
     stopRecording: () => void;
+    getRecordedBlob: () => Blob;
     toggleAudio: () => void;
     toggleVideo: () => void;
     isAudioEnabled: boolean;
@@ -50,10 +51,15 @@ export const useMediaRecorder = (): UseMediaRecorderReturn => {
 
     const checkPermissions = useCallback(async () => {
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
-            // Immediately release the hardware, we only needed to check permissions/labels
+            console.log("Requesting microphone permission...");
+            // Try Audio ONLY first, as this might be what "used to work"
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+            // If audio works, we can try video or just treat it as success for now
+            // stream.getTracks().forEach(t => t.stop()); // Don't stop yet if we want to enumerate? No, enumerate works without stream.
             stream.getTracks().forEach(t => t.stop());
             setPermissionError(false);
+            console.log("Microphone permission granted.");
 
             const allDevices = await navigator.mediaDevices.enumerateDevices();
             setDevices(allDevices);
@@ -68,8 +74,9 @@ export const useMediaRecorder = (): UseMediaRecorderReturn => {
                 setSelectedVideoId(videoDevices[0].deviceId);
             }
         } catch (err: any) {
-            console.error("Failed to enumerate devices:", err);
-            if (err.name === 'NotAllowedError' || err.name === 'SecurityError') {
+            console.error("Failed to get permissions:", err);
+            // Only show the "Open in Tab" button if it's genuinely a permission/security issue or the specific Firefox DOMException
+            if (err.name === 'NotAllowedError' || err.name === 'SecurityError' || err.message?.includes('The object can not be found')) {
                 setPermissionError(true);
             }
         }
@@ -192,13 +199,32 @@ export const useMediaRecorder = (): UseMediaRecorderReturn => {
     // Lazy load Utils to avoid issues if files missing during refactor (though we just created them)
     // Actually better to import them at top. Added imports at top of file.
 
-    const startRecording = async (socket?: Socket | null) => {
+    const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+    const chunksRef = useRef<Blob[]>([]);
+
+    const startRecording = useCallback(async (socket?: Socket | null) => {
         setError(null);
         try {
-            setIsAudioEnabled(true);
-            setIsVideoEnabled(true);
+            let newStream: MediaStream;
+            try {
+                // Try to get both audio and video (if selected)
+                // If video fails (common in Firefox popup due to permission prompt block), we fallback to audio-only
+                newStream = await getMediaStream(selectedAudioId, selectedVideoId);
+                setIsAudioEnabled(true);
+                setIsVideoEnabled(true);
+            } catch (err: any) {
+                console.warn("Failed to get audio+video stream, retrying audio-only:", err);
 
-            const newStream = await getMediaStream(selectedAudioId, selectedVideoId);
+                // Check for Firefox popup permission error or Not Found/Not Allowed
+                if (err.message?.includes('The object can not be found') || err.name === 'NotFoundError' || err.name === 'NotAllowedError') {
+                    newStream = await getMediaStream(selectedAudioId, false);
+                    setIsVideoEnabled(false);
+                    setIsAudioEnabled(true);
+                } else {
+                    throw err;
+                }
+            }
+
             streamRef.current = newStream;
             setStream(newStream);
 
@@ -207,14 +233,49 @@ export const useMediaRecorder = (): UseMediaRecorderReturn => {
             const tabs = await chrome.tabs.query({ active: true, currentWindow: false, windowType: 'normal' });
             const targetTab = tabs[0];
             if (targetTab?.id) {
-                // Best effort signaling
                 chrome.tabs.sendMessage(targetTab.id, {
                     type: 'START_RECORDING',
                     timestamp: Date.now()
-                }).catch(() => { /* Content script might not be ready, ignore */ });
+                }).catch(() => { });
             }
 
             setIsRecording(true);
+
+            // --- Full Video Recording (Archive) ---
+            chunksRef.current = [];
+
+            // Determine MIME type
+            const videoTracks = newStream.getVideoTracks();
+            const hasVideo = videoTracks.length > 0 && videoTracks[0].readyState === 'live';
+            let mimeType = 'video/webm;codecs=vp9';
+
+            if (!hasVideo) {
+                mimeType = 'audio/webm';
+            } else if (!MediaRecorder.isTypeSupported(mimeType)) {
+                mimeType = 'video/webm'; // Fallback
+            }
+
+            // Final check
+            if (!MediaRecorder.isTypeSupported(mimeType)) {
+                // Last resort for standard recording
+                mimeType = hasVideo ? 'video/mp4' : 'audio/mp4';
+                // Note: mp4 might not be supported in all MediaRecorder implementations, but let's try standard types if webm fails.
+                if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = ''; // Let browser choose default
+            }
+
+            console.log("Starting MediaRecorder with mimeType:", mimeType);
+
+            const options = mimeType ? { mimeType } : undefined;
+            const mediaRecorder = new MediaRecorder(newStream, options);
+
+            mediaRecorder.ondataavailable = (e) => {
+                if (e.data.size > 0) {
+                    chunksRef.current.push(e.data);
+                }
+            };
+            mediaRecorder.start(1000); // chunk every second
+            mediaRecorderRef.current = mediaRecorder;
+
 
             // --- Streaming Logic ---
             if (socket) {
@@ -224,13 +285,8 @@ export const useMediaRecorder = (): UseMediaRecorderReturn => {
                 }
                 const ctx = audioContextRef.current;
 
-                // Re-create source for processing if needed (analyser setup might have done it)
-                // We need a source that persists for the processor
                 const processSource = ctx.createMediaStreamSource(newStream);
 
-                // Buffer size 4096 = ~92ms at 44.1kHz. 
-                // We want ~250ms chunks ideally for Gemini? Or smaller for realtime? 
-                // 4096 is standard for ScriptProcessor. 
                 const processor = ctx.createScriptProcessor(4096, 1, 1);
                 processorRef.current = processor;
 
@@ -238,30 +294,23 @@ export const useMediaRecorder = (): UseMediaRecorderReturn => {
                     if (!socket.connected) return;
 
                     const inputData = e.inputBuffer.getChannelData(0);
-                    // Downsample to 16kHz
                     const downsampled = downsample(inputData, ctx.sampleRate, 16000);
                     const pcm16 = convertFloat32ToInt16(downsampled);
-
-                    // Send as base64 or buffer? Socket.io handles binary well usually.
-                    // Gemini Service expects: "mediaChunks: [{ ... data: base64 }]"
-                    // Gateway expects: "session.geminiSession.sendAudio(buffer)"
-                    // Let's send raw buffer to gateway, gateway handles it.
                     socket.emit('audio_chunk', pcm16.buffer);
                 };
 
                 processSource.connect(processor);
-                processor.connect(ctx.destination); // ScriptProcessor needs to be connected to destination to fire
+                processor.connect(ctx.destination);
 
-                // 2. Video Streaming
+                // 2. Video Streaming (Low FPS)
                 if (!canvasRef.current) {
                     canvasRef.current = document.createElement('canvas');
-                    canvasRef.current.width = 640; // 360p or 480p is enough for AI
+                    canvasRef.current.width = 640;
                     canvasRef.current.height = 360;
                 }
                 const canvas = canvasRef.current;
                 const canvasCtx = canvas.getContext('2d');
 
-                // Create a video element to grab frames from stream (since we can't grab from MediaStreamTrack directly easily without ImageCapture API which is flaky)
                 const vid = document.createElement('video');
                 vid.srcObject = newStream;
                 vid.muted = true;
@@ -272,12 +321,12 @@ export const useMediaRecorder = (): UseMediaRecorderReturn => {
 
                     if (vid.readyState === vid.HAVE_ENOUGH_DATA) {
                         canvasCtx.drawImage(vid, 0, 0, canvas.width, canvas.height);
-                        // Quality 0.5 for speed
                         const dataUrl = canvas.toDataURL('image/jpeg', 0.5);
                         const base64 = dataUrl.split(',')[1];
                         socket.emit('screen_frame', { frame: base64 });
+                        // console.log("Sent frame size:", base64.length); 
                     }
-                }, 1000); // 1 FPS
+                }, 100); // Increased FPS to 10 for smoother feed
             }
 
         } catch (err: any) {
@@ -288,8 +337,9 @@ export const useMediaRecorder = (): UseMediaRecorderReturn => {
                 setError(err.message || 'Failed to start recording');
             }
             cleanup();
+            throw err; // Propagate error so caller knows it failed
         }
-    };
+    }, [selectedAudioId, selectedVideoId, cleanup]);
 
     useEffect(() => {
         if (!isRecording) return;
@@ -362,8 +412,16 @@ export const useMediaRecorder = (): UseMediaRecorderReturn => {
     }, [isRecording, isVideoEnabled, selectedVideoId]);
 
     const stopRecording = () => {
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+            mediaRecorderRef.current.stop();
+        }
         cleanup();
     };
+
+
+    const getRecordedBlob = useCallback(() => {
+        return new Blob(chunksRef.current, { type: 'video/webm' });
+    }, []);
 
     useEffect(() => {
         return () => cleanup();
@@ -373,6 +431,7 @@ export const useMediaRecorder = (): UseMediaRecorderReturn => {
         isRecording,
         startRecording,
         stopRecording,
+        getRecordedBlob,
         toggleAudio,
         toggleVideo,
         isAudioEnabled,
@@ -387,6 +446,6 @@ export const useMediaRecorder = (): UseMediaRecorderReturn => {
         setSelectedVideoId,
         checkPermissions,
         permissionError,
-        stream // Return state
+        stream
     };
 };

@@ -43,3 +43,11 @@ export async function createSession(missionId: string) {
 
   return response.json();
 }
+
+export async function getSession(id: string) {
+  const response = await fetch(`${API_BASE_URL}/sessions/${id}`);
+  if (!response.ok) {
+    throw new Error("Failed to fetch session");
+  }
+  return response.json();
+}

@@ -5,17 +5,24 @@ import { useAuth } from './hooks/useAuth';
 import { useMissions } from './hooks/useMissions';
 import { useSocket } from './hooks/useSocket';
 
-const DASHBOARD_URL = import.meta.env.VITE_DASHBOARD_URL || 'http://localhost:3000';
+const DASHBOARD_URL = import.meta.env.VITE_DASHBOARD_URL || 'http://localhost:5000';
 
 function App() {
-  const { isRecording, startRecording, stopRecording, toggleAudio, toggleVideo, isAudioEnabled, isVideoEnabled, audioData, error, devices, selectedAudioId, setSelectedAudioId, selectedVideoId, setSelectedVideoId, stream, checkPermissions, permissionError } = useMediaRecorder();
+  const { missions, isLoading: missionsLoading, createMission } = useMissions();
   const { isAuthenticated, isLoading, user, login, debugLogin } = useAuth();
-  const { missions, isLoading: missionsLoading } = useMissions();
-  const { socket, connectSocket, disconnectSocket, consumeAudio } = useSocket();
+  const { socket, isConnected: isSocketConnected, connectSocket, disconnectSocket, consumeAudio, messages } = useSocket();
+  const { isRecording, startRecording, stopRecording, getRecordedBlob, toggleAudio, toggleVideo, isAudioEnabled, isVideoEnabled, audioData, error, devices, selectedAudioId, setSelectedAudioId, selectedVideoId, setSelectedVideoId, stream, checkPermissions, permissionError } = useMediaRecorder();
+
   const [selectedMissionId, setSelectedMissionId] = useState<string>('');
   const [sessionError, setSessionError] = useState<string | null>(null);
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  const [isEnding, setIsEnding] = useState(false);
 
-  const [hurdles] = useState<string[]>([]);
+  // New Mission Form State
+  const [isCreating, setIsCreating] = useState(false);
+  const [newMissionName, setNewMissionName] = useState('');
+  const [newMissionContext, setNewMissionContext] = useState('');
+
   const videoRef = useRef<HTMLVideoElement>(null);
 
   // Audio Playback State
@@ -98,50 +105,126 @@ function App() {
 
   // Effect to actually start recording once socket is ready
   useEffect(() => {
-    if (pendingSession && socket?.connected) {
-      startRecording(socket).then(() => {
-        setPendingSession(false);
-      });
+    if (pendingSession && isSocketConnected) {
+      startRecording(socket)
+        .then(() => {
+          setPendingSession(false);
+        })
+        .catch((e) => {
+          console.error("Failed to start recording session:", e);
+          setPendingSession(false);
+          setSessionError("Failed to start recording. Please check permissions.");
+        });
     }
-  }, [pendingSession, socket, startRecording]);
+  }, [pendingSession, isSocketConnected, socket, startRecording]);
+
+
+  const startSession = async () => {
+    if (!selectedMissionId && !isCreating) {
+      setSessionError("Please select a mission first.");
+      return;
+    }
+
+    try {
+      let missionId = selectedMissionId;
+
+      // Create Mission if needed
+      if (isCreating) {
+        if (!newMissionName) {
+          setSessionError("Mission name is required");
+          return;
+        }
+        const tabs = await chrome.tabs.query({ active: true, currentWindow: false, windowType: 'normal' });
+        const url = tabs[0]?.url || '';
+        const newMission = await createMission(newMissionName, newMissionContext, url);
+        missionId = newMission.id;
+        setSelectedMissionId(missionId);
+        setIsCreating(false);
+      }
+
+      // Create Session on Backend
+      const response = await fetch(`${DASHBOARD_URL}/sessions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ missionId: missionId })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create session on backend');
+      }
+
+      const sessionData = await response.json();
+      setCurrentSessionId(sessionData.id);
+
+      // Connect Socket
+      connectSocket(sessionData.id);
+      setPendingSession(true);
+
+    } catch (err: any) {
+      console.error("Failed to start session:", err);
+      setSessionError(err.message || "Failed to start session");
+    }
+  };
+
+  useEffect(() => {
+    console.log("Pending Session Effect:", { pendingSession, socketConnected: socket?.connected });
+  }, [pendingSession, socket]);
+
+  const endSession = async () => {
+    if (!currentSessionId) return;
+    setIsEnding(true);
+    try {
+      // 1. Stop Recording Local & Remote
+      stopRecording();
+      disconnectSocket();
+
+      // 2. Get Events from Content Script
+      const tabs = await chrome.tabs.query({ active: true, currentWindow: false, windowType: 'normal' });
+      let logs = [];
+      if (tabs[0]?.id) {
+        try {
+          const response = await chrome.tabs.sendMessage(tabs[0].id, { type: 'STOP_RECORDING' });
+          logs = response.events || [];
+        } catch (e) {
+          console.warn("Failed to get logs from content script", e);
+        }
+      }
+
+      // 3. Get Video Blob (Wait a bit for Recorder to finalize)
+      await new Promise(r => setTimeout(r, 500));
+      const videoBlob = getRecordedBlob();
+
+      // 4. Upload
+      const formData = new FormData();
+      if (videoBlob.size > 0) {
+        formData.append('video', videoBlob, 'session.webm');
+      }
+      formData.append('logs', JSON.stringify(logs));
+
+      await fetch(`${DASHBOARD_URL}/sessions/${currentSessionId}/finalize`, {
+        method: 'POST',
+        body: formData
+      });
+
+      setCurrentSessionId(null);
+      setSessionError(null);
+
+    } catch (err: any) {
+      console.error("Failed to finalize session:", err);
+      setSessionError("Failed to upload session data. please check console.");
+    } finally {
+      setIsEnding(false);
+    }
+  };
 
   const toggleConnection = async () => {
     setSessionError(null);
     if (isRecording) {
-      // Stopping
-      stopRecording();
-      disconnectSocket();
+      await endSession();
     } else {
-      // Starting
-      if (!selectedMissionId) {
-        setSessionError("Please select a mission first.");
-        return;
-      }
-
-      try {
-        // Create Session on Backend
-        const response = await fetch(`${DASHBOARD_URL}/sessions`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ missionId: selectedMissionId })
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to create session on backend');
-        }
-
-        const sessionData = await response.json();
-
-        // Connect Socket
-        connectSocket(sessionData.id);
-        setPendingSession(true);
-
-      } catch (err: any) {
-        console.error("Failed to start session:", err);
-        setSessionError(err.message || "Failed to start session");
-      }
+      await startSession();
     }
   };
 
@@ -199,35 +282,49 @@ function App() {
             {user && <span className="text-[10px] text-gray-400">Hi, {user.name.split(' ')[0]}</span>}
           </div>
         </div>
-        <div className={`flex items-center gap-2 text-xs font-medium px-2 py-1 rounded-full ${isRecording ? 'bg-green-900/30 text-green-400 border border-green-800' : 'bg-red-900/30 text-red-400 border border-red-800'}`}>
-          <div className={`w-2 h-2 rounded-full ${isRecording ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
-          {isRecording ? 'CONNECTED' : 'OFFLINE'}
+        <div className="flex items-center gap-2">
+          {isRecording && currentSessionId && (
+            <button
+              onClick={() => window.open(`http://localhost:3000/live/${currentSessionId}`, '_blank')}
+              className="text-[10px] bg-purple-900/50 text-purple-300 px-2 py-1 rounded border border-purple-800 hover:bg-purple-900 hover:text-white transition-colors flex items-center gap-1"
+            >
+              <Target className="w-3 h-3" />
+              View Live
+            </button>
+          )}
+          <div className={`flex items-center gap-2 text-xs font-medium px-2 py-1 rounded-full ${isRecording ? 'bg-green-900/30 text-green-400 border border-green-800' : 'bg-red-900/30 text-red-400 border border-red-800'}`}>
+            <div className={`w-2 h-2 rounded-full ${isRecording ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+            {isRecording ? 'LIVE' : 'OFFLINE'}
+          </div>
         </div>
       </header>
 
       {/* Main Control */}
       <main className="flex-1 flex flex-col items-center justify-center gap-8 py-8 relative">
 
-        {/* Settings Toggle */}
-        <div className="absolute top-0 right-0">
-          {/* We can place a settings button here if we want, or near the mic toggle */}
-        </div>
-
         {/* Connection Ring */}
         <div className="relative group">
           <div className={`absolute -inset-1 rounded-full blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200 ${isRecording ? 'bg-gradient-to-r from-purple-600 to-blue-600' : 'bg-gray-700'}`}></div>
           <button
             onClick={toggleConnection}
-            className={`relative w-40 h-40 rounded-full flex flex-col items-center justify-center bg-gray-900 border-4 transition-all duration-300 shadow-2xl ${isRecording ? 'border-purple-500 shadow-purple-500/20' : 'border-gray-700 hover:border-gray-600'}`}
+            disabled={isEnding}
+            className={`relative w-40 h-40 rounded-full flex flex-col items-center justify-center bg-gray-900 border-4 transition-all duration-300 shadow-2xl ${isRecording ? 'border-red-500 shadow-red-500/20' : 'border-purple-500 hover:border-purple-400'}`}
           >
-            {isRecording ? (
-              <Radio className="w-12 h-12 text-purple-500 animate-pulse" />
+            {isEnding ? (
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+            ) : isRecording ? (
+              <>
+                <div className="w-12 h-12 bg-red-500 rounded-lg animate-pulse mb-2" />
+                <span className="text-sm font-bold text-red-500">STOP</span>
+              </>
             ) : (
-              <Radio className="w-12 h-12 text-gray-500" />
+              <>
+                <Radio className="w-12 h-12 text-purple-500" />
+                <span className="mt-2 text-sm font-semibold tracking-widest uppercase text-gray-400">
+                  Start
+                </span>
+              </>
             )}
-            <span className="mt-2 text-sm font-semibold tracking-widest uppercase text-gray-400">
-              {isRecording ? 'LIVE' : 'Start'}
-            </span>
           </button>
         </div>
 
@@ -237,7 +334,6 @@ function App() {
             {sessionError}
           </div>
         )}
-
 
         {/* Audio Visualizer Placeholder */}
         <div className="w-full h-16 bg-gray-800/50 rounded-lg flex items-end justify-center gap-1 overflow-hidden border border-gray-800/50 p-2">
@@ -256,8 +352,6 @@ function App() {
           )}
           {!error && isRecording ? (
             Array.from({ length: 20 }).map((_, i) => {
-              // Map visualizer data to height (simple scaling)
-              // Data array is 32 items (fftSize/2), we use first 20
               const value = audioData[i] || 0;
               const height = Math.max(4, (value / 255) * 100);
 
@@ -267,7 +361,7 @@ function App() {
                   className="w-1 bg-purple-500 rounded-t-sm transition-all duration-75"
                   style={{
                     height: `${height}%`,
-                    opacity: 0.5 + (value / 510) // Dynamic opacity
+                    opacity: 0.5 + (value / 510)
                   }}
                 />
               )
@@ -281,34 +375,54 @@ function App() {
         <div className="flex flex-col gap-3 w-full">
 
           {/* Mission Selection */}
-          <div className="flex items-center gap-2 w-full">
-            <div className="p-3 bg-gray-800 text-gray-400 border border-gray-700 rounded-lg">
-              <Target className="w-5 h-5" />
+          {!isRecording && (
+            <div className="w-full space-y-2">
+              {isCreating ? (
+                <div className="bg-gray-800 p-3 rounded-lg border border-gray-700 space-y-2">
+                  <input
+                    type="text"
+                    placeholder="Mission Name"
+                    className="w-full bg-gray-900 text-sm p-2 rounded border border-gray-700 focus:border-purple-500 outline-none"
+                    value={newMissionName}
+                    onChange={e => setNewMissionName(e.target.value)}
+                  />
+                  <input
+                    type="text"
+                    placeholder="Context (Optional)"
+                    className="w-full bg-gray-900 text-sm p-2 rounded border border-gray-700 focus:border-purple-500 outline-none"
+                    value={newMissionContext}
+                    onChange={e => setNewMissionContext(e.target.value)}
+                  />
+                  <button onClick={() => setIsCreating(false)} className="text-xs text-gray-400 hover:text-white">Cancel</button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 w-full">
+                  <div className="p-3 bg-gray-800 text-gray-400 border border-gray-700 rounded-lg">
+                    <Target className="w-5 h-5" />
+                  </div>
+                  <div className="relative flex-1">
+                    <select
+                      value={selectedMissionId}
+                      onChange={(e) => {
+                        if (e.target.value === 'NEW') setIsCreating(true);
+                        else setSelectedMissionId(e.target.value);
+                      }}
+                      disabled={missionsLoading}
+                      className="w-full bg-gray-800 text-xs text-gray-300 rounded-lg border border-gray-700 px-3 py-3 focus:outline-none focus:border-purple-500 appearance-none truncate disabled:opacity-50"
+                    >
+                      <option value="">Select a Mission...</option>
+                      <option value="NEW">+ Create New Mission</option>
+                      {missions.map((mission) => (
+                        <option key={mission.id} value={mission.id}>
+                          {mission.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
             </div>
-            <div className="relative flex-1">
-              <select
-                value={selectedMissionId}
-                onChange={(e) => setSelectedMissionId(e.target.value)}
-                disabled={isRecording || missionsLoading}
-                className="w-full bg-gray-800 text-xs text-gray-300 rounded-lg border border-gray-700 px-3 py-3 focus:outline-none focus:border-purple-500 appearance-none truncate disabled:opacity-50"
-              >
-                {missionsLoading ? (
-                  <option>Loading missions...</option>
-                ) : missions.length === 0 ? (
-                  <option value="">No Active Missions</option>
-                ) : (
-                  missions.map((mission) => (
-                    <option key={mission.id} value={mission.id}>
-                      {mission.name}
-                    </option>
-                  ))
-                )}
-              </select>
-              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
-                <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" /></svg>
-              </div>
-            </div>
-          </div>
+          )}
 
           {/* Audio Input */}
           <div className="flex items-center gap-2 w-full">
@@ -407,23 +521,29 @@ function App() {
 
       </main>
 
-      {/* Hurdles Log */}
+      {/* Live Chat / Events */}
       <section className="bg-gray-800/30 rounded-xl p-4 border border-gray-800 h-48 flex flex-col">
         <div className="flex items-center gap-2 mb-3 text-gray-400 border-b border-gray-700/50 pb-2">
-          <Bug className="w-4 h-4" />
-          <h3 className="text-xs font-bold uppercase tracking-wider">Detected Hurdles</h3>
+          <Activity className="w-4 h-4" />
+          <h3 className="text-xs font-bold uppercase tracking-wider">Live Interaction</h3>
         </div>
 
-        <div className="flex-1 overflow-y-auto space-y-2 custom-scrollbar">
-          {hurdles.length === 0 ? (
+        <div className="flex-1 overflow-y-auto space-y-3 custom-scrollbar px-1">
+          {messages.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-gray-600 space-y-2 opacity-50">
               <Activity className="w-8 h-8" />
-              <p className="text-xs text-center">No hurdles detected.<br />Go break something.</p>
+              <p className="text-xs text-center">Waiting for activity...</p>
             </div>
           ) : (
-            hurdles.map((msg, i) => (
-              <div key={i} className="text-xs p-2 rounded bg-gray-800 border border-gray-700 text-red-300">
-                {msg}
+            messages.map((msg, i) => (
+              <div key={i} className={`flex ${msg.source === 'ai' ? 'justify-start' : 'justify-end'}`}>
+                <div className={`max-w-[85%] text-xs p-2 rounded-lg ${msg.source === 'ai'
+                  ? 'bg-purple-900/30 border border-purple-800/50 text-purple-200 rounded-tl-none'
+                  : 'bg-gray-800 border border-gray-700 text-gray-300 rounded-tr-none'
+                  }`}>
+                  {msg.source === 'ai' && <span className="block text-[10px] text-purple-400 font-bold mb-1">GEMINI</span>}
+                  {msg.text}
+                </div>
               </div>
             ))
           )}

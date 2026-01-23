@@ -1,13 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { Mission } from '../types';
 
-const DASHBOARD_URL = import.meta.env.VITE_DASHBOARD_URL || 'http://localhost:3000';
+const DASHBOARD_URL = import.meta.env.VITE_DASHBOARD_URL || 'http://localhost:5000';
 
 interface UseMissionsReturn {
     missions: Mission[];
     isLoading: boolean;
     error: string | null;
     refresh: () => Promise<void>;
+    createMission: (name: string, context: string, url: string) => Promise<Mission>;
 }
 
 export const useMissions = (): UseMissionsReturn => {
@@ -41,6 +42,22 @@ export const useMissions = (): UseMissionsReturn => {
         missions,
         isLoading,
         error,
-        refresh: fetchMissions
+        refresh: fetchMissions,
+        createMission: async (name: string, context: string, url: string) => {
+            try {
+                const response = await fetch(`${DASHBOARD_URL}/missions`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, context, url, happyPath: [] })
+                });
+                if (!response.ok) throw new Error('Failed to create mission');
+                const newMission = await response.json();
+                setMissions(prev => [newMission, ...prev]);
+                return newMission;
+            } catch (e) {
+                console.error(e);
+                throw e;
+            }
+        }
     };
 };

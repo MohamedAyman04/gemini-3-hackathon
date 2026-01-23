@@ -26,6 +26,8 @@ export default function LiveViewSelection() {
     fetchMissions();
   }, []);
 
+  const activeMissions = missions.filter(m => m.sessions?.some((s: any) => s.status === 'RUNNING'));
+
   return (
     <div className="space-y-8">
       <div>
@@ -42,7 +44,7 @@ export default function LiveViewSelection() {
           <div className="col-span-full py-12 text-center text-gray-500">
             Loading active sessions...
           </div>
-        ) : missions.length === 0 ? (
+        ) : activeMissions.length === 0 ? (
           <Card className="col-span-full border-dashed border-white/10 bg-transparent py-16">
             <CardContent className="flex flex-col items-center justify-center text-center">
               <Activity className="h-12 w-12 text-gray-600 mb-4" />
@@ -57,7 +59,7 @@ export default function LiveViewSelection() {
             </CardContent>
           </Card>
         ) : (
-          missions.map((mission) => (
+          activeMissions.map((mission) => (
             <Card
               key={mission.id}
               className="group hover:border-violet-500/50 transition-all cursor-pointer bg-slate-900/40"
@@ -65,7 +67,7 @@ export default function LiveViewSelection() {
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
                   <span className="truncate">{mission.name}</span>
-                  <Activity className="h-4 w-4 text-emerald-500" />
+                  <Activity className="h-4 w-4 text-emerald-500 animate-pulse" />
                 </CardTitle>
                 <p className="text-xs text-gray-500 truncate">{mission.url}</p>
               </CardHeader>
@@ -73,7 +75,13 @@ export default function LiveViewSelection() {
                 <Button
                   variant="outline"
                   className="w-full group-hover:bg-violet-600 group-hover:text-white transition-all"
-                  onClick={() => router.push(`/live/${mission.id}`)}
+                  onClick={() => {
+                    // Find the running session ID
+                    const runningSession = mission.sessions?.find((s: any) => s.status === 'RUNNING');
+                    if (runningSession) {
+                      router.push(`/live/${runningSession.id}`);
+                    }
+                  }}
                 >
                   Join Live Stream
                   <ArrowRight className="ml-2 h-4 w-4" />

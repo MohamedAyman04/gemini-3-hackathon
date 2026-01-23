@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { getMissions } from "@/lib/api";
+import Link from "next/link";
 
 export default function SessionsHistory() {
   const [missions, setMissions] = useState<any[]>([]);
@@ -150,7 +151,9 @@ export default function SessionsHistory() {
                     className="flex items-center px-6 py-4 hover:bg-white/5 transition-colors group"
                   >
                     <div className="flex-1">
-                      <p className="font-medium text-white">{mission.name}</p>
+                      <Link href={`/sessions/${mission.id}`} className="font-medium text-white hover:text-violet-400 transition-colors">
+                        {mission.name}
+                      </Link>
                       <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
                         <span className="w-2 h-2 rounded-full bg-violet-500/50"></span>
                         VibeCheck-01

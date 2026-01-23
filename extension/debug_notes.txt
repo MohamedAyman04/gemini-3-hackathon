@@ -1,0 +1,17 @@
+// Explanation:
+// The error `SyntaxError: export declarations may only appear at top level...`
+// usually occurs because Vite bundles `rrweb` which might be using ESM exports,
+// and if it's not fully tree-shaken or if the output format isn't IIFE,
+// Firefox chokes on `export` statements in content scripts.
+//
+// We will modify vite.config.ts to ensure content scripts are bundled as IIFE?
+// The @crxjs/vite-plugin should handle this...
+//
+// Let's first look at `content.ts` again. It imports `record` from `rrweb`.
+// If I change this to a dynamic import or verify vite config...
+//
+// A common fix for this specific Firefox error with Vite extensions is to ensure
+// the content script doesn't accidentally export anything (it doesn't appear to).
+//
+// Wait, `record` import might be bringing in code that has exports if not bundled correctly.
+// Let's try explicitly importing from the specific path or checking if we can use a basic script.
