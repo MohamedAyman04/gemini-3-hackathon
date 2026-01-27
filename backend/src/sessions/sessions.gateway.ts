@@ -41,6 +41,7 @@ export class SessionsGateway
     for (const [sessionId, sessionData] of this.activeSessions.entries()) {
       if (sessionData.hostId === client.id) {
         console.log(`Host left session ${sessionId}. Cleaning up Gemini.`);
+        this.server.to(sessionId).emit('session_ended', { reason: 'Host ended the session' });
         sessionData.geminiSession.close();
         this.sessionsService.update(sessionId, { status: 'COMPLETED' });
         this.activeSessions.delete(sessionId);
@@ -59,6 +60,16 @@ export class SessionsGateway
     if (this.activeSessions.has(data.sessionId)) {
       client.join(data.sessionId);
       console.log(`Session ${data.sessionId} active. Client ${client.id} joined as ${data.type || 'viewer'}.`);
+
+      // Request Snapshot from Host if a new Viewer joins
+      if (data.type === 'viewer' || !data.type) {
+        const session = this.activeSessions.get(data.sessionId);
+        if (session && session.hostId) {
+          console.log(`Requesting snapshot from host ${session.hostId}`);
+          this.server.to(session.hostId).emit('request_snapshot');
+        }
+      }
+
       return { status: 'joined', sessionId: data.sessionId, role: data.type || 'viewer' };
     }
 
@@ -133,8 +144,20 @@ export class SessionsGateway
       const buffer = Buffer.from(data.frame, 'base64');
       session.geminiSession.sendImage(buffer);
 
-      // Broadcast to frontend viewers
-      this.server.to(sessionId).emit('screen_frame', data);
+      // Broadcast to frontend viewers (exclude sender)
+      client.broadcast.to(sessionId).emit('screen_frame', data);
+    }
+  }
+
+  @SubscribeMessage('rrweb_events')
+  handleRrwebEvents(
+    @MessageBody() events: any[],
+    @ConnectedSocket() client: Socket,
+  ) {
+    const sessionId = Array.from(client.rooms).find((r) => r !== client.id);
+    if (sessionId) {
+      // Broadcast to all viewers (excluding sender ideally, but sender is extension so it's fine)
+      client.broadcast.to(sessionId).emit('rrweb_events', events);
     }
   }
 

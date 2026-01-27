@@ -1,5 +1,4 @@
 "use client";
-
 import { useState, useEffect, useRef, use } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
@@ -17,6 +16,7 @@ import {
   Activity,
 } from "lucide-react";
 import { io, Socket } from "socket.io-client";
+import "rrweb-player/dist/style.css";
 
 export default function LiveSession({
   params,
@@ -28,17 +28,24 @@ export default function LiveSession({
   const sessionId = unwrappedParams.sessionId;
 
   const socketRef = useRef<Socket | null>(null);
+  const playerRef = useRef<any>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [logs, setLogs] = useState<{ time: string, message: string, source: string }[]>([]);
   const [frictionScore, setFrictionScore] = useState(0);
   const [emotion, setEmotion] = useState<"Neutral" | "Frustrated" | "Confused">("Neutral");
+  const [isSessionEnded, setIsSessionEnded] = useState(false);
   const [sessionData, setSessionData] = useState<any>(null);
 
   // Fetch session details for start time / metadata
   useEffect(() => {
     fetch(`http://localhost:5000/sessions/${sessionId}`)
       .then(res => res.json())
-      .then(data => setSessionData(data))
+      .then(data => {
+        setSessionData(data);
+        if (data.status === 'COMPLETED') {
+          setIsSessionEnded(true);
+        }
+      })
       .catch(err => console.error("Failed to fetch session", err));
   }, [sessionId]);
 
@@ -53,6 +60,12 @@ export default function LiveSession({
       socket.emit("join_session", { sessionId: sessionId, type: 'viewer' });
     });
 
+    socket.on("session_ended", (data: { reason: string }) => {
+      setIsSessionEnded(true);
+      addLog(`Session Ended: ${data.reason}`, "SYSTEM");
+      if (playerRef.current) playerRef.current.pause();
+    });
+
     socket.on("ai_text", (data) => {
       addLog(data.text, "AI");
     });
@@ -63,17 +76,49 @@ export default function LiveSession({
       setEmotion("Frustrated");
     });
 
-    // Reset emotion after a while?
-    // For now, let it stick.
-
-    socket.on("ai_audio", () => {
-      // Visual indicator could be added here
-    });
-
     socket.on("screen_frame", (data: { frame: string }) => {
-      const img = document.getElementById('live-feed') as HTMLImageElement;
+      const img = document.getElementById('webcam-feed') as HTMLImageElement;
       if (img) {
         img.src = `data:image/jpeg;base64,${data.frame}`;
+      }
+    });
+
+    socket.on("rrweb_events", async (events: any[]) => {
+      if (playerRef.current) {
+        events.forEach(event => {
+          playerRef.current.addEvent(event);
+        });
+      } else {
+        // Init player on first batch (ideally checks for snapshot)
+        // We lazily init on first data
+        if (events.length > 0) {
+          // We need to verify if we have a full snapshot (type 2) or if we can start anyway.
+          // In live mode, rrweb might wait for a snapshot.
+          // If we join mid-stream and miss type-2, we are in trouble unless backend sends latest state.
+          // For now, assume fresh start or robust enough.
+
+          const { default: rrwebPlayer } = await import('rrweb-player');
+
+          const container = document.getElementById('rrweb-container');
+          if (container && !playerRef.current) {
+            container.innerHTML = ''; // clear waiting text
+            playerRef.current = new rrwebPlayer({
+              target: container,
+              props: {
+                events: events,
+                liveMode: true,
+                autoPlay: true,
+                width: container.clientWidth,
+                height: container.clientHeight,
+              },
+            });
+
+            // Handle resize? 
+            playerRef.current.addEventListener('ui-update-progress', (payload: any) => {
+              // console.log(payload);
+            });
+          }
+        }
       }
     });
 
@@ -83,6 +128,11 @@ export default function LiveSession({
 
     return () => {
       socket.disconnect();
+      if (playerRef.current) {
+        // Cleanup? rrweb-player might not have a destroy property easily accessible or we just remove container content
+        playerRef.current.pause();
+        playerRef.current = null;
+      }
     };
   }, [sessionId]);
 
@@ -161,15 +211,33 @@ export default function LiveSession({
         {/* Main Screen Stream */}
         <div className="lg:col-span-3 flex flex-col gap-4">
           <div className="relative flex-1 rounded-2xl bg-black border border-white/10 overflow-hidden group">
-            {/* Live Video Feed */}
-            <img
-              id="live-feed"
-              className="absolute inset-0 w-full h-full object-contain bg-black"
-              alt="Live Feed"
-              style={{ display: isConnected ? 'block' : 'none' }}
-            />
 
-            <div className={`absolute inset-0 flex items-center justify-center bg-slate-900/50 ${isConnected ? 'hidden' : 'flex'}`}>
+            {/* Live RRWeb Container */}
+            <div id="rrweb-container" className="absolute inset-0 w-full h-full bg-white flex items-center justify-center text-gray-400">
+              {!isConnected && !isSessionEnded && "Connecting..."}
+              {isConnected && !isSessionEnded && "Waiting for session data..."}
+            </div>
+
+            {/* Session Ended Overlay */}
+            {isSessionEnded && (
+              <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/80 backdrop-blur-sm text-white space-y-4">
+                <AlertTriangle className="w-16 h-16 text-yellow-500 mb-2" />
+                <h2 className="text-2xl font-bold">Session Ended</h2>
+                <p className="text-gray-400 max-w-md text-center">
+                  The host has disconnected or the session has been marked as completed.
+                </p>
+                <div className="flex gap-4 mt-4">
+                  <Button onClick={() => router.push('/')} variant="secondary">
+                    Back to Dashboard
+                  </Button>
+                  <Button onClick={() => router.push(`/sessions/${sessionId}`)} className="bg-purple-600 hover:bg-purple-700">
+                    View Summary
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            <div className={`absolute inset-0 flex items-center justify-center bg-slate-900/50 ${isConnected && !isSessionEnded ? 'hidden' : 'flex'} ${isSessionEnded ? 'hidden' : ''}`}>
               <p className="text-gray-500 flex items-center gap-2">
                 <VideoOff className="w-5 h-5" />
                 Waiting for extension stream...
@@ -177,8 +245,9 @@ export default function LiveSession({
             </div>
 
             {/* Webcam overlay */}
-            <div className="absolute top-4 right-4 w-48 h-32 bg-slate-800 rounded-lg border border-white/10 shadow-xl overflow-hidden">
-              <div className="absolute inset-0 flex items-center justify-center text-gray-500 text-xs">
+            <div className="absolute top-4 right-4 w-48 h-32 bg-slate-800 rounded-lg border border-white/10 shadow-xl overflow-hidden z-50">
+              <img id="webcam-feed" className="w-full h-full object-cover transform scale-x-[-1]" alt="Cam" />
+              <div className="absolute inset-0 flex items-center justify-center text-gray-500 text-xs -z-10">
                 User Webcam
               </div>
             </div>

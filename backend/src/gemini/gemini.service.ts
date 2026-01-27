@@ -208,7 +208,7 @@ export class GeminiService implements OnModuleInit {
     ws.on('open', () => {
       const setup_msg = {
         setup: {
-          model: 'models/gemini-1.5-flash',
+          model: 'gemini-3-flash-preview',
           systemInstruction: { parts: [{ text: systemInstruction }] },
           generationConfig: {
             responseModalities: ['audio'],
