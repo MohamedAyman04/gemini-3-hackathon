@@ -106,15 +106,18 @@ function App() {
   // Effect to actually start recording once socket is ready
   useEffect(() => {
     if (pendingSession && isSocketConnected) {
-      startRecording(socket)
-        .then(() => {
-          setPendingSession(false);
-        })
-        .catch((e) => {
-          console.error("Failed to start recording session:", e);
-          setPendingSession(false);
-          setSessionError("Failed to start recording. Please check permissions.");
-        });
+      const timer = setTimeout(() => {
+        startRecording(socket)
+          .then(() => {
+            setPendingSession(false);
+          })
+          .catch((e) => {
+            console.error("Failed to start recording session:", e);
+            setPendingSession(false);
+            setSessionError("Failed to start recording. Please check permissions.");
+          });
+      }, 500); // Small debounce to ensure socket stability and prevent double-trigger
+      return () => clearTimeout(timer);
     }
   }, [pendingSession, isSocketConnected, socket, startRecording]);
 
@@ -172,6 +175,22 @@ function App() {
     console.log("Pending Session Effect:", { pendingSession, socketConnected: socket?.connected });
   }, [pendingSession, socket]);
 
+  // Forward rrweb events from Content Script to Backend
+  useEffect(() => {
+    const handleMessage = (message: any, _sender: any, _sendResponse: any) => {
+      if (message.type === 'RRWEB_EVENTS') {
+        if (isRecording && socket?.connected) {
+          socket.emit('rrweb_events', message.events);
+          // console.log(`Forwarded ${message.events.length} rrweb events`);
+        }
+      }
+      return false;
+    };
+
+    chrome.runtime.onMessage.addListener(handleMessage);
+    return () => chrome.runtime.onMessage.removeListener(handleMessage);
+  }, [isRecording, socket]);
+
   const endSession = async () => {
     if (!currentSessionId) return;
     setIsEnding(true);
@@ -187,6 +206,7 @@ function App() {
         try {
           const response = await chrome.tabs.sendMessage(tabs[0].id, { type: 'STOP_RECORDING' });
           logs = response.events || [];
+          console.log(`VibeCheck: Retrieved ${logs.length} events from content script.`);
         } catch (e) {
           console.warn("Failed to get logs from content script", e);
         }

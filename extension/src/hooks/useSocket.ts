@@ -65,6 +65,15 @@ export const useSocket = (): UseSocketReturn => {
             // Handle later (e.g. show toast)
         });
 
+        newSocket.on('request_snapshot', () => {
+            console.log("Received Snapshot Request from Backend");
+            chrome.tabs.query({ active: true, currentWindow: false, windowType: 'normal' }).then((tabs) => {
+                if (tabs[0]?.id) {
+                    chrome.tabs.sendMessage(tabs[0].id, { type: 'FORCE_SNAPSHOT' }).catch(err => console.warn(err));
+                }
+            });
+        });
+
         setSocket(newSocket);
     }, [socket]);
 

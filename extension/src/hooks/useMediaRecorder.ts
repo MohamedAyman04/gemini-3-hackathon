@@ -326,7 +326,7 @@ export const useMediaRecorder = (): UseMediaRecorderReturn => {
                         socket.emit('screen_frame', { frame: base64 });
                         // console.log("Sent frame size:", base64.length); 
                     }
-                }, 100); // Increased FPS to 10 for smoother feed
+                }, 500); // Reduced FPS to 2 for better performance
             }
 
         } catch (err: any) {
