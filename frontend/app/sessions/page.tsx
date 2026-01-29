@@ -12,28 +12,47 @@ import {
   Filter,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { getMissions } from "@/lib/api";
+import { getMissions, getMe } from "@/lib/api";
 import Link from "next/link";
+import { Activity } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 export default function SessionsHistory() {
+  const router = useRouter();
   const [missions, setMissions] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
-    const fetchMissions = async () => {
+    const init = async () => {
       try {
+        await getMe();
+        setIsAuthLoading(false);
+
         const data = await getMissions();
         setMissions(data);
       } catch (error) {
-        console.error("Failed to fetch missions:", error);
+        console.warn("Auth check failed, redirecting to login");
+        router.push("/login");
       } finally {
         setIsLoading(false);
       }
     };
-    fetchMissions();
-  }, []);
+    init();
+  }, [router]);
+
+  if (isAuthLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#020617]">
+        <div className="flex flex-col items-center gap-4">
+          <Activity className="w-12 h-12 text-violet-500 animate-pulse" />
+          <p className="text-gray-400 animate-pulse">Authenticating...</p>
+        </div>
+      </div>
+    );
+  }
 
   const filteredMissions = missions.filter((mission) => {
     if (statusFilter === "all") return true;
@@ -151,7 +170,10 @@ export default function SessionsHistory() {
                     className="flex items-center px-6 py-4 hover:bg-white/5 transition-colors group"
                   >
                     <div className="flex-1">
-                      <Link href={`/sessions/${mission.id}`} className="font-medium text-white hover:text-violet-400 transition-colors">
+                      <Link
+                        href={`/sessions/${mission.id}`}
+                        className="font-medium text-white hover:text-violet-400 transition-colors"
+                      >
                         {mission.name}
                       </Link>
                       <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">

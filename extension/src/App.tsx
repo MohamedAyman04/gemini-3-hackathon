@@ -1,27 +1,64 @@
-import { useRef, useEffect, useState } from 'react';
-import { Mic, MicOff, Radio, Activity, Bug, LogIn, Video, VideoOff, Target } from 'lucide-react';
-import { useMediaRecorder } from './hooks/useMediaRecorder';
-import { useAuth } from './hooks/useAuth';
-import { useMissions } from './hooks/useMissions';
-import { useSocket } from './hooks/useSocket';
+import { useRef, useEffect, useState } from "react";
+import {
+  Mic,
+  MicOff,
+  Radio,
+  Activity,
+  Bug,
+  LogIn,
+  Video,
+  VideoOff,
+  Target,
+} from "lucide-react";
+import { useMediaRecorder } from "./hooks/useMediaRecorder";
+import { useAuth } from "./hooks/useAuth";
+import { useMissions } from "./hooks/useMissions";
+import { useSocket } from "./hooks/useSocket";
 
-const DASHBOARD_URL = import.meta.env.VITE_DASHBOARD_URL || 'http://localhost:5000';
+const DASHBOARD_URL =
+  import.meta.env.VITE_DASHBOARD_URL || "http://localhost:5000";
 
 function App() {
   const { missions, isLoading: missionsLoading, createMission } = useMissions();
   const { isAuthenticated, isLoading, user, login, debugLogin } = useAuth();
-  const { socket, isConnected: isSocketConnected, connectSocket, disconnectSocket, consumeAudio, messages } = useSocket();
-  const { isRecording, startRecording, stopRecording, getRecordedBlob, toggleAudio, toggleVideo, isAudioEnabled, isVideoEnabled, audioData, error, devices, selectedAudioId, setSelectedAudioId, selectedVideoId, setSelectedVideoId, stream, checkPermissions, permissionError } = useMediaRecorder();
+  const {
+    socket,
+    isConnected: isSocketConnected,
+    connectSocket,
+    disconnectSocket,
+    consumeAudio,
+    messages,
+  } = useSocket();
+  const {
+    isRecording,
+    startRecording,
+    stopRecording,
+    getRecordedBlob,
+    toggleAudio,
+    toggleVideo,
+    isAudioEnabled,
+    isVideoEnabled,
+    audioData,
+    error,
+    devices,
+    selectedAudioId,
+    setSelectedAudioId,
+    selectedVideoId,
+    setSelectedVideoId,
+    stream,
+    checkPermissions,
+    permissionError,
+  } = useMediaRecorder();
 
-  const [selectedMissionId, setSelectedMissionId] = useState<string>('');
+  const [selectedMissionId, setSelectedMissionId] = useState<string>("");
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [isEnding, setIsEnding] = useState(false);
 
   // New Mission Form State
   const [isCreating, setIsCreating] = useState(false);
-  const [newMissionName, setNewMissionName] = useState('');
-  const [newMissionContext, setNewMissionContext] = useState('');
+  const [newMissionName, setNewMissionName] = useState("");
+  const [newMissionContext, setNewMissionContext] = useState("");
 
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -78,7 +115,6 @@ function App() {
 
           source.start(startTime);
           nextStartTimeRef.current = startTime + audioBuffer.duration;
-
         } catch (e) {
           console.error("Error playing audio chunk", e);
         }
@@ -95,10 +131,10 @@ function App() {
 
     return () => {
       if (!isRecording && audioContextRef.current) {
-        audioContextRef.current.close().catch(() => { });
+        audioContextRef.current.close().catch(() => {});
         audioContextRef.current = null;
       }
-    }
+    };
   }, [isRecording, consumeAudio]);
 
   const [pendingSession, setPendingSession] = useState(false);
@@ -109,18 +145,45 @@ function App() {
       const timer = setTimeout(() => {
         startRecording(socket)
           .then(() => {
+            // Signal Content Script on the active tab
+            chrome.tabs
+              .query({
+                active: true,
+                currentWindow: false,
+                windowType: "normal",
+              })
+              .then((tabs) => {
+                if (tabs[0]?.id) {
+                  console.log(
+                    "App: Sending START_RECORDING to tab",
+                    tabs[0].id,
+                  );
+                  chrome.tabs
+                    .sendMessage(tabs[0].id, {
+                      type: "START_RECORDING",
+                      timestamp: Date.now(),
+                    })
+                    .catch((e) =>
+                      console.warn(
+                        "Failed to notify tab of recording start",
+                        e,
+                      ),
+                    );
+                }
+              });
             setPendingSession(false);
           })
           .catch((e) => {
             console.error("Failed to start recording session:", e);
             setPendingSession(false);
-            setSessionError("Failed to start recording. Please check permissions.");
+            setSessionError(
+              "Failed to start recording. Please check permissions.",
+            );
           });
       }, 500); // Small debounce to ensure socket stability and prevent double-trigger
       return () => clearTimeout(timer);
     }
   }, [pendingSession, isSocketConnected, socket, startRecording]);
-
 
   const startSession = async () => {
     if (!selectedMissionId && !isCreating) {
@@ -137,9 +200,17 @@ function App() {
           setSessionError("Mission name is required");
           return;
         }
-        const tabs = await chrome.tabs.query({ active: true, currentWindow: false, windowType: 'normal' });
-        const url = tabs[0]?.url || '';
-        const newMission = await createMission(newMissionName, newMissionContext, url);
+        const tabs = await chrome.tabs.query({
+          active: true,
+          currentWindow: false,
+          windowType: "normal",
+        });
+        const url = tabs[0]?.url || "";
+        const newMission = await createMission(
+          newMissionName,
+          newMissionContext,
+          url,
+        );
         missionId = newMission.id;
         setSelectedMissionId(missionId);
         setIsCreating(false);
@@ -147,15 +218,15 @@ function App() {
 
       // Create Session on Backend
       const response = await fetch(`${DASHBOARD_URL}/sessions`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json'
+          "Content-Type": "application/json",
         },
-        body: JSON.stringify({ missionId: missionId })
+        body: JSON.stringify({ missionId: missionId }),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to create session on backend');
+        throw new Error("Failed to create session on backend");
       }
 
       const sessionData = await response.json();
@@ -164,7 +235,6 @@ function App() {
       // Connect Socket
       connectSocket(sessionData.id);
       setPendingSession(true);
-
     } catch (err: any) {
       console.error("Failed to start session:", err);
       setSessionError(err.message || "Failed to start session");
@@ -172,15 +242,18 @@ function App() {
   };
 
   useEffect(() => {
-    console.log("Pending Session Effect:", { pendingSession, socketConnected: socket?.connected });
+    console.log("Pending Session Effect:", {
+      pendingSession,
+      socketConnected: socket?.connected,
+    });
   }, [pendingSession, socket]);
 
   // Forward rrweb events from Content Script to Backend
   useEffect(() => {
     const handleMessage = (message: any, _sender: any, _sendResponse: any) => {
-      if (message.type === 'RRWEB_EVENTS') {
+      if (message.type === "RRWEB_EVENTS") {
         if (isRecording && socket?.connected) {
-          socket.emit('rrweb_events', message.events);
+          socket.emit("rrweb_events", message.events);
           // console.log(`Forwarded ${message.events.length} rrweb events`);
         }
       }
@@ -200,37 +273,50 @@ function App() {
       disconnectSocket();
 
       // 2. Get Events from Content Script
-      const tabs = await chrome.tabs.query({ active: true, currentWindow: false, windowType: 'normal' });
+      // Query ALL active tabs in normal windows to find the one recording
+      const tabs = await chrome.tabs.query({
+        active: true,
+        windowType: "normal",
+      });
       let logs = [];
-      if (tabs[0]?.id) {
+
+      for (const tab of tabs) {
+        if (!tab.id) continue;
         try {
-          const response = await chrome.tabs.sendMessage(tabs[0].id, { type: 'STOP_RECORDING' });
-          logs = response.events || [];
-          console.log(`VibeCheck: Retrieved ${logs.length} events from content script.`);
+          console.log("App: Attempting to STOP_RECORDING on tab", tab.id);
+          const response = await chrome.tabs.sendMessage(tab.id, {
+            type: "STOP_RECORDING",
+          });
+          if (response && response.events) {
+            logs = response.events;
+            console.log(
+              `VibeCheck: Retrieved ${logs.length} events from tab ${tab.id}`,
+            );
+            break;
+          }
         } catch (e) {
-          console.warn("Failed to get logs from content script", e);
+          // Continue to next tab
         }
       }
 
       // 3. Get Video Blob (Wait a bit for Recorder to finalize)
-      await new Promise(r => setTimeout(r, 500));
+      await new Promise((r) => setTimeout(r, 500));
       const videoBlob = getRecordedBlob();
 
       // 4. Upload
       const formData = new FormData();
       if (videoBlob.size > 0) {
-        formData.append('video', videoBlob, 'session.webm');
+        formData.append("video", videoBlob, "session.webm");
       }
-      formData.append('logs', JSON.stringify(logs));
+      formData.append("logs", JSON.stringify(logs));
 
       await fetch(`${DASHBOARD_URL}/sessions/${currentSessionId}/finalize`, {
-        method: 'POST',
-        body: formData
+        method: "POST",
+        body: formData,
       });
 
       setCurrentSessionId(null);
       setSessionError(null);
-
     } catch (err: any) {
       console.error("Failed to finalize session:", err);
       setSessionError("Failed to upload session data. please check console.");
@@ -298,37 +384,53 @@ function App() {
         <div className="flex items-center gap-3">
           <Activity className="text-purple-500 w-6 h-6" />
           <div className="flex flex-col">
-            <h1 className="text-lg font-bold tracking-tight leading-none">VibeCheck</h1>
-            {user && <span className="text-[10px] text-gray-400">Hi, {user.name.split(' ')[0]}</span>}
+            <h1 className="text-lg font-bold tracking-tight leading-none">
+              VibeCheck
+            </h1>
+            {user && (
+              <span className="text-[10px] text-gray-400">
+                Hi, {user.name.split(" ")[0]}
+              </span>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-2">
           {isRecording && currentSessionId && (
             <button
-              onClick={() => window.open(`http://localhost:3000/live/${currentSessionId}`, '_blank')}
+              onClick={() =>
+                window.open(
+                  `http://localhost:3000/live/${currentSessionId}`,
+                  "_blank",
+                )
+              }
               className="text-[10px] bg-purple-900/50 text-purple-300 px-2 py-1 rounded border border-purple-800 hover:bg-purple-900 hover:text-white transition-colors flex items-center gap-1"
             >
               <Target className="w-3 h-3" />
               View Live
             </button>
           )}
-          <div className={`flex items-center gap-2 text-xs font-medium px-2 py-1 rounded-full ${isRecording ? 'bg-green-900/30 text-green-400 border border-green-800' : 'bg-red-900/30 text-red-400 border border-red-800'}`}>
-            <div className={`w-2 h-2 rounded-full ${isRecording ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
-            {isRecording ? 'LIVE' : 'OFFLINE'}
+          <div
+            className={`flex items-center gap-2 text-xs font-medium px-2 py-1 rounded-full ${isRecording ? "bg-green-900/30 text-green-400 border border-green-800" : "bg-red-900/30 text-red-400 border border-red-800"}`}
+          >
+            <div
+              className={`w-2 h-2 rounded-full ${isRecording ? "bg-green-500 animate-pulse" : "bg-red-500"}`}
+            />
+            {isRecording ? "LIVE" : "OFFLINE"}
           </div>
         </div>
       </header>
 
       {/* Main Control */}
       <main className="flex-1 flex flex-col items-center justify-center gap-8 py-8 relative">
-
         {/* Connection Ring */}
         <div className="relative group">
-          <div className={`absolute -inset-1 rounded-full blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200 ${isRecording ? 'bg-gradient-to-r from-purple-600 to-blue-600' : 'bg-gray-700'}`}></div>
+          <div
+            className={`absolute -inset-1 rounded-full blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200 ${isRecording ? "bg-gradient-to-r from-purple-600 to-blue-600" : "bg-gray-700"}`}
+          ></div>
           <button
             onClick={toggleConnection}
             disabled={isEnding}
-            className={`relative w-40 h-40 rounded-full flex flex-col items-center justify-center bg-gray-900 border-4 transition-all duration-300 shadow-2xl ${isRecording ? 'border-red-500 shadow-red-500/20' : 'border-purple-500 hover:border-purple-400'}`}
+            className={`relative w-40 h-40 rounded-full flex flex-col items-center justify-center bg-gray-900 border-4 transition-all duration-300 shadow-2xl ${isRecording ? "border-red-500 shadow-red-500/20" : "border-purple-500 hover:border-purple-400"}`}
           >
             {isEnding ? (
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
@@ -360,9 +462,11 @@ function App() {
           {error && (
             <div className="flex flex-col items-center gap-2 w-full">
               <div className="text-red-500 text-xs text-center">{error}</div>
-              {error.includes('denied') && (
+              {error.includes("denied") && (
                 <button
-                  onClick={() => window.open(chrome.runtime.getURL('popup.html'), '_blank')}
+                  onClick={() =>
+                    window.open(chrome.runtime.getURL("popup.html"), "_blank")
+                  }
                   className="text-xs bg-gray-800 hover:bg-gray-700 text-white px-3 py-1 rounded border border-gray-600 transition-colors"
                 >
                   Open in Tab to Fix
@@ -381,19 +485,20 @@ function App() {
                   className="w-1 bg-purple-500 rounded-t-sm transition-all duration-75"
                   style={{
                     height: `${height}%`,
-                    opacity: 0.5 + (value / 510)
+                    opacity: 0.5 + value / 510,
                   }}
                 />
-              )
+              );
             })
           ) : (
-            <span className="text-gray-600 text-xs uppercase tracking-wider">Audio Inactive</span>
+            <span className="text-gray-600 text-xs uppercase tracking-wider">
+              Audio Inactive
+            </span>
           )}
         </div>
 
         {/* Controls Grid */}
         <div className="flex flex-col gap-3 w-full">
-
           {/* Mission Selection */}
           {!isRecording && (
             <div className="w-full space-y-2">
@@ -404,16 +509,21 @@ function App() {
                     placeholder="Mission Name"
                     className="w-full bg-gray-900 text-sm p-2 rounded border border-gray-700 focus:border-purple-500 outline-none"
                     value={newMissionName}
-                    onChange={e => setNewMissionName(e.target.value)}
+                    onChange={(e) => setNewMissionName(e.target.value)}
                   />
                   <input
                     type="text"
                     placeholder="Context (Optional)"
                     className="w-full bg-gray-900 text-sm p-2 rounded border border-gray-700 focus:border-purple-500 outline-none"
                     value={newMissionContext}
-                    onChange={e => setNewMissionContext(e.target.value)}
+                    onChange={(e) => setNewMissionContext(e.target.value)}
                   />
-                  <button onClick={() => setIsCreating(false)} className="text-xs text-gray-400 hover:text-white">Cancel</button>
+                  <button
+                    onClick={() => setIsCreating(false)}
+                    className="text-xs text-gray-400 hover:text-white"
+                  >
+                    Cancel
+                  </button>
                 </div>
               ) : (
                 <div className="flex items-center gap-2 w-full">
@@ -424,7 +534,7 @@ function App() {
                     <select
                       value={selectedMissionId}
                       onChange={(e) => {
-                        if (e.target.value === 'NEW') setIsCreating(true);
+                        if (e.target.value === "NEW") setIsCreating(true);
                         else setSelectedMissionId(e.target.value);
                       }}
                       disabled={missionsLoading}
@@ -448,26 +558,40 @@ function App() {
           <div className="flex items-center gap-2 w-full">
             <button
               onClick={toggleAudio}
-              className={`p-3 rounded-lg transition-colors flex-shrink-0 ${!isAudioEnabled ? 'bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/50' : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white border border-gray-700'}`}
+              className={`p-3 rounded-lg transition-colors flex-shrink-0 ${!isAudioEnabled ? "bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/50" : "bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white border border-gray-700"}`}
             >
-              {!isAudioEnabled ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+              {!isAudioEnabled ? (
+                <MicOff className="w-5 h-5" />
+              ) : (
+                <Mic className="w-5 h-5" />
+              )}
             </button>
 
             {/* Device Selection Dropdown or Permission Request */}
             <div className="relative flex-1">
-              {devices.filter(d => d.kind === 'audioinput').length === 0 || permissionError ? (
+              {devices.filter((d) => d.kind === "audioinput").length === 0 ||
+              permissionError ? (
                 <button
                   onClick={() => {
                     if (permissionError) {
-                      window.open(chrome.runtime.getURL('popup.html'), '_blank');
+                      window.open(
+                        chrome.runtime.getURL("popup.html"),
+                        "_blank",
+                      );
                     } else {
                       checkPermissions();
                     }
                   }}
-                  className={`w-full text-xs font-medium rounded-lg border px-3 py-3 transition-colors flex items-center justify-center gap-2 ${permissionError ? 'bg-red-900/20 text-red-400 border-red-800/50 hover:bg-red-900/30' : 'bg-purple-900/20 text-purple-400 border-purple-800/50 hover:bg-purple-900/30'}`}
+                  className={`w-full text-xs font-medium rounded-lg border px-3 py-3 transition-colors flex items-center justify-center gap-2 ${permissionError ? "bg-red-900/20 text-red-400 border-red-800/50 hover:bg-red-900/30" : "bg-purple-900/20 text-purple-400 border-purple-800/50 hover:bg-purple-900/30"}`}
                 >
-                  {permissionError ? <Bug className="w-3 h-3" /> : <MicOff className="w-3 h-3" />}
-                  {permissionError ? 'Microphone Blocked (Open Tab)' : 'Enable Microphone'}
+                  {permissionError ? (
+                    <Bug className="w-3 h-3" />
+                  ) : (
+                    <MicOff className="w-3 h-3" />
+                  )}
+                  {permissionError
+                    ? "Microphone Blocked (Open Tab)"
+                    : "Enable Microphone"}
                 </button>
               ) : (
                 <div className="relative">
@@ -477,15 +601,22 @@ function App() {
                     className="w-full bg-gray-800 text-xs text-gray-300 rounded-lg border border-gray-700 px-3 py-3 focus:outline-none focus:border-purple-500 appearance-none truncate"
                   >
                     {devices
-                      .filter(d => d.kind === 'audioinput')
-                      .map(device => (
+                      .filter((d) => d.kind === "audioinput")
+                      .map((device) => (
                         <option key={device.deviceId} value={device.deviceId}>
-                          {device.label || `Microphone ${device.deviceId.slice(0, 5)}...`}
+                          {device.label ||
+                            `Microphone ${device.deviceId.slice(0, 5)}...`}
                         </option>
                       ))}
                   </select>
                   <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
-                    <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" /></svg>
+                    <svg
+                      className="fill-current h-4 w-4"
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 20 20"
+                    >
+                      <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                    </svg>
                   </div>
                 </div>
               )}
@@ -496,9 +627,13 @@ function App() {
           <div className="flex items-center gap-2 w-full">
             <button
               onClick={toggleVideo}
-              className={`p-3 rounded-lg transition-colors flex-shrink-0 ${!isVideoEnabled ? 'bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/50' : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white border border-gray-700'}`}
+              className={`p-3 rounded-lg transition-colors flex-shrink-0 ${!isVideoEnabled ? "bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/50" : "bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white border border-gray-700"}`}
             >
-              {!isVideoEnabled ? <VideoOff className="w-5 h-5" /> : <Video className="w-5 h-5" />}
+              {!isVideoEnabled ? (
+                <VideoOff className="w-5 h-5" />
+              ) : (
+                <Video className="w-5 h-5" />
+              )}
             </button>
 
             <div className="relative flex-1">
@@ -508,15 +643,22 @@ function App() {
                 className="w-full bg-gray-800 text-xs text-gray-300 rounded-lg border border-gray-700 px-3 py-3 focus:outline-none focus:border-purple-500 appearance-none truncate"
               >
                 {devices
-                  .filter(d => d.kind === 'videoinput')
-                  .map(device => (
+                  .filter((d) => d.kind === "videoinput")
+                  .map((device) => (
                     <option key={device.deviceId} value={device.deviceId}>
-                      {device.label || `Camera ${device.deviceId.slice(0, 5)}...`}
+                      {device.label ||
+                        `Camera ${device.deviceId.slice(0, 5)}...`}
                     </option>
                   ))}
               </select>
               <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
-                <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" /></svg>
+                <svg
+                  className="fill-current h-4 w-4"
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 20 20"
+                >
+                  <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                </svg>
               </div>
             </div>
           </div>
@@ -536,16 +678,16 @@ function App() {
               </div>
             </div>
           )}
-
         </div>
-
       </main>
 
       {/* Live Chat / Events */}
       <section className="bg-gray-800/30 rounded-xl p-4 border border-gray-800 h-48 flex flex-col">
         <div className="flex items-center gap-2 mb-3 text-gray-400 border-b border-gray-700/50 pb-2">
           <Activity className="w-4 h-4" />
-          <h3 className="text-xs font-bold uppercase tracking-wider">Live Interaction</h3>
+          <h3 className="text-xs font-bold uppercase tracking-wider">
+            Live Interaction
+          </h3>
         </div>
 
         <div className="flex-1 overflow-y-auto space-y-3 custom-scrollbar px-1">
@@ -556,12 +698,22 @@ function App() {
             </div>
           ) : (
             messages.map((msg, i) => (
-              <div key={i} className={`flex ${msg.source === 'ai' ? 'justify-start' : 'justify-end'}`}>
-                <div className={`max-w-[85%] text-xs p-2 rounded-lg ${msg.source === 'ai'
-                  ? 'bg-purple-900/30 border border-purple-800/50 text-purple-200 rounded-tl-none'
-                  : 'bg-gray-800 border border-gray-700 text-gray-300 rounded-tr-none'
-                  }`}>
-                  {msg.source === 'ai' && <span className="block text-[10px] text-purple-400 font-bold mb-1">GEMINI</span>}
+              <div
+                key={i}
+                className={`flex ${msg.source === "ai" ? "justify-start" : "justify-end"}`}
+              >
+                <div
+                  className={`max-w-[85%] text-xs p-2 rounded-lg ${
+                    msg.source === "ai"
+                      ? "bg-purple-900/30 border border-purple-800/50 text-purple-200 rounded-tl-none"
+                      : "bg-gray-800 border border-gray-700 text-gray-300 rounded-tr-none"
+                  }`}
+                >
+                  {msg.source === "ai" && (
+                    <span className="block text-[10px] text-purple-400 font-bold mb-1">
+                      GEMINI
+                    </span>
+                  )}
                   {msg.text}
                 </div>
               </div>
@@ -570,6 +722,6 @@ function App() {
         </div>
       </section>
     </div>
-  )
+  );
 }
 export default App;

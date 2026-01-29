@@ -29,24 +29,29 @@ export default function LiveSession({
 
   const socketRef = useRef<Socket | null>(null);
   const playerRef = useRef<any>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [isConnected, setIsConnected] = useState(false);
-  const [logs, setLogs] = useState<{ time: string, message: string, source: string }[]>([]);
+  const [logs, setLogs] = useState<
+    { time: string; message: string; source: string }[]
+  >([]);
   const [frictionScore, setFrictionScore] = useState(0);
-  const [emotion, setEmotion] = useState<"Neutral" | "Frustrated" | "Confused">("Neutral");
+  const [emotion, setEmotion] = useState<"Neutral" | "Frustrated" | "Confused">(
+    "Neutral",
+  );
   const [isSessionEnded, setIsSessionEnded] = useState(false);
   const [sessionData, setSessionData] = useState<any>(null);
 
   // Fetch session details for start time / metadata
   useEffect(() => {
     fetch(`http://localhost:5000/sessions/${sessionId}`)
-      .then(res => res.json())
-      .then(data => {
+      .then((res) => res.json())
+      .then((data) => {
         setSessionData(data);
-        if (data.status === 'COMPLETED') {
+        if (data.status === "COMPLETED") {
           setIsSessionEnded(true);
         }
       })
-      .catch(err => console.error("Failed to fetch session", err));
+      .catch((err) => console.error("Failed to fetch session", err));
   }, [sessionId]);
 
   useEffect(() => {
@@ -57,7 +62,7 @@ export default function LiveSession({
     socket.on("connect", () => {
       setIsConnected(true);
       // Join as viewer
-      socket.emit("join_session", { sessionId: sessionId, type: 'viewer' });
+      socket.emit("join_session", { sessionId: sessionId, type: "viewer" });
     });
 
     socket.on("session_ended", (data: { reason: string }) => {
@@ -72,12 +77,12 @@ export default function LiveSession({
 
     socket.on("ai_intervention", (data) => {
       addLog(`Intervention Triggered: ${data.type}`, "SYSTEM");
-      setFrictionScore(prev => Math.min(100, prev + 10));
+      setFrictionScore((prev) => Math.min(100, prev + 10));
       setEmotion("Frustrated");
     });
 
     socket.on("screen_frame", (data: { frame: string }) => {
-      const img = document.getElementById('webcam-feed') as HTMLImageElement;
+      const img = document.getElementById("webcam-feed") as HTMLImageElement;
       if (img) {
         img.src = `data:image/jpeg;base64,${data.frame}`;
       }
@@ -85,7 +90,7 @@ export default function LiveSession({
 
     socket.on("rrweb_events", async (events: any[]) => {
       if (playerRef.current) {
-        events.forEach(event => {
+        events.forEach((event) => {
           playerRef.current.addEvent(event);
         });
       } else {
@@ -97,26 +102,28 @@ export default function LiveSession({
           // If we join mid-stream and miss type-2, we are in trouble unless backend sends latest state.
           // For now, assume fresh start or robust enough.
 
-          const { default: rrwebPlayer } = await import('rrweb-player');
+          const { default: rrwebPlayer } = await import("rrweb-player");
 
-          const container = document.getElementById('rrweb-container');
-          if (container && !playerRef.current) {
-            container.innerHTML = ''; // clear waiting text
+          if (containerRef.current && !playerRef.current) {
+            containerRef.current.innerHTML = ""; // clear waiting text
             playerRef.current = new rrwebPlayer({
-              target: container,
+              target: containerRef.current,
               props: {
                 events: events,
                 liveMode: true,
                 autoPlay: true,
-                width: container.clientWidth,
-                height: container.clientHeight,
+                width: containerRef.current.clientWidth,
+                height: containerRef.current.clientHeight,
               },
             });
 
-            // Handle resize? 
-            playerRef.current.addEventListener('ui-update-progress', (payload: any) => {
-              // console.log(payload);
-            });
+            // Handle resize?
+            playerRef.current.addEventListener(
+              "ui-update-progress",
+              (payload: any) => {
+                // console.log(payload);
+              },
+            );
           }
         }
       }
@@ -137,11 +144,16 @@ export default function LiveSession({
   }, [sessionId]);
 
   const addLog = (message: string, source: "AI" | "USER" | "SYSTEM") => {
-    setLogs(prev => [...prev, {
-      time: new Date().toLocaleTimeString(),
-      message,
-      source
-    }].slice(-50)); // Keep last 50
+    setLogs((prev) =>
+      [
+        ...prev,
+        {
+          time: new Date().toLocaleTimeString(),
+          message,
+          source,
+        },
+      ].slice(-50),
+    ); // Keep last 50
   };
 
   const handleTriggerAI = async () => {
@@ -163,9 +175,13 @@ export default function LiveSession({
       const now = new Date().getTime();
       const diff = Math.floor((now - start) / 1000);
 
-      const h = Math.floor(diff / 3600).toString().padStart(2, '0');
-      const m = Math.floor((diff % 3600) / 60).toString().padStart(2, '0');
-      const s = (diff % 60).toString().padStart(2, '0');
+      const h = Math.floor(diff / 3600)
+        .toString()
+        .padStart(2, "0");
+      const m = Math.floor((diff % 3600) / 60)
+        .toString()
+        .padStart(2, "0");
+      const s = (diff % 60).toString().padStart(2, "0");
       setElapsed(`${h}:${m}:${s}`);
     }, 1000);
 
@@ -178,8 +194,12 @@ export default function LiveSession({
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-3">
             <span className="relative flex h-3 w-3">
-              <span className={`absolute inline-flex h-full w-full rounded-full opacity-75 ${isConnected ? 'animate-ping bg-red-400' : 'bg-gray-400'}`}></span>
-              <span className={`relative inline-flex rounded-full h-3 w-3 ${isConnected ? 'bg-red-500' : 'bg-gray-500'}`}></span>
+              <span
+                className={`absolute inline-flex h-full w-full rounded-full opacity-75 ${isConnected ? "animate-ping bg-red-400" : "bg-gray-400"}`}
+              ></span>
+              <span
+                className={`relative inline-flex rounded-full h-3 w-3 ${isConnected ? "bg-red-500" : "bg-gray-500"}`}
+              ></span>
             </span>
             Live Session: {sessionData?.mission?.name || "Loading..."}
           </h1>
@@ -211,12 +231,23 @@ export default function LiveSession({
         {/* Main Screen Stream */}
         <div className="lg:col-span-3 flex flex-col gap-4">
           <div className="relative flex-1 rounded-2xl bg-black border border-white/10 overflow-hidden group">
-
             {/* Live RRWeb Container */}
-            <div id="rrweb-container" className="absolute inset-0 w-full h-full bg-white flex items-center justify-center text-gray-400">
-              {!isConnected && !isSessionEnded && "Connecting..."}
-              {isConnected && !isSessionEnded && "Waiting for session data..."}
-            </div>
+            <div
+              ref={containerRef}
+              id="rrweb-container"
+              className="absolute inset-0 w-full h-full bg-white"
+            />
+
+            {/* Overlay Status Text - Manually positioned so React doesn't fight rrweb for the container children */}
+            {(!isConnected || (!playerRef.current && !isSessionEnded)) && (
+              <div className="absolute inset-0 flex items-center justify-center text-gray-400 pointer-events-none z-10">
+                {!isConnected && !isSessionEnded && "Connecting..."}
+                {isConnected &&
+                  !playerRef.current &&
+                  !isSessionEnded &&
+                  "Waiting for session data..."}
+              </div>
+            )}
 
             {/* Session Ended Overlay */}
             {isSessionEnded && (
@@ -224,20 +255,26 @@ export default function LiveSession({
                 <AlertTriangle className="w-16 h-16 text-yellow-500 mb-2" />
                 <h2 className="text-2xl font-bold">Session Ended</h2>
                 <p className="text-gray-400 max-w-md text-center">
-                  The host has disconnected or the session has been marked as completed.
+                  The host has disconnected or the session has been marked as
+                  completed.
                 </p>
                 <div className="flex gap-4 mt-4">
-                  <Button onClick={() => router.push('/')} variant="secondary">
+                  <Button onClick={() => router.push("/")} variant="secondary">
                     Back to Dashboard
                   </Button>
-                  <Button onClick={() => router.push(`/sessions/${sessionId}`)} className="bg-purple-600 hover:bg-purple-700">
+                  <Button
+                    onClick={() => router.push(`/sessions/${sessionId}`)}
+                    className="bg-purple-600 hover:bg-purple-700"
+                  >
                     View Summary
                   </Button>
                 </div>
               </div>
             )}
 
-            <div className={`absolute inset-0 flex items-center justify-center bg-slate-900/50 ${isConnected && !isSessionEnded ? 'hidden' : 'flex'} ${isSessionEnded ? 'hidden' : ''}`}>
+            <div
+              className={`absolute inset-0 flex items-center justify-center bg-slate-900/50 ${isConnected && !isSessionEnded ? "hidden" : "flex"} ${isSessionEnded ? "hidden" : ""}`}
+            >
               <p className="text-gray-500 flex items-center gap-2">
                 <VideoOff className="w-5 h-5" />
                 Waiting for extension stream...
@@ -246,7 +283,11 @@ export default function LiveSession({
 
             {/* Webcam overlay */}
             <div className="absolute top-4 right-4 w-48 h-32 bg-slate-800 rounded-lg border border-white/10 shadow-xl overflow-hidden z-50">
-              <img id="webcam-feed" className="w-full h-full object-cover transform scale-x-[-1]" alt="Cam" />
+              <img
+                id="webcam-feed"
+                className="w-full h-full object-cover transform scale-x-[-1]"
+                alt="Cam"
+              />
               <div className="absolute inset-0 flex items-center justify-center text-gray-500 text-xs -z-10">
                 User Webcam
               </div>
@@ -262,8 +303,9 @@ export default function LiveSession({
                 </p>
                 <div className="mt-1 flex items-center gap-2">
                   <div
-                    className={`h-3 w-3 rounded-full ${emotion === "Neutral" ? "bg-blue-500" : "bg-orange-500"
-                      }`}
+                    className={`h-3 w-3 rounded-full ${
+                      emotion === "Neutral" ? "bg-blue-500" : "bg-orange-500"
+                    }`}
                   />
                   <span className="font-semibold text-lg">{emotion}</span>
                 </div>
@@ -274,7 +316,8 @@ export default function LiveSession({
                   Friction Score
                 </p>
                 <div className="mt-1 text-lg font-mono text-white">
-                  {frictionScore}<span className="text-sm text-gray-500">/100</span>
+                  {frictionScore}
+                  <span className="text-sm text-gray-500">/100</span>
                 </div>
               </div>
             </div>
@@ -292,7 +335,11 @@ export default function LiveSession({
             </CardHeader>
             <CardContent className="flex-1 p-0 overflow-hidden relative">
               <div className="absolute inset-0 overflow-y-auto p-4 space-y-3 font-mono text-xs">
-                {logs.length === 0 && <div className="text-gray-500 text-center py-4">Waiting for event logs...</div>}
+                {logs.length === 0 && (
+                  <div className="text-gray-500 text-center py-4">
+                    Waiting for event logs...
+                  </div>
+                )}
                 {logs.map((log, i) => (
                   <div
                     key={i}
