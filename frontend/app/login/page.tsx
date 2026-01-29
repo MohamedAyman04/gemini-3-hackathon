@@ -15,6 +15,8 @@ import {
   CardTitle,
 } from "@/components/ui/Card";
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -28,9 +30,10 @@ export default function LoginPage() {
     try {
       // Logic for signing in
       // For the hackathon, we'll call the backend /auth/login
-      const response = await fetch("http://localhost:5000/auth/login", {
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ email, password }),
       });
 

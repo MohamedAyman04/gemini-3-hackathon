@@ -24,7 +24,7 @@ import {
   CardTitle,
 } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import { createMission, createSession, getMissions } from "@/lib/api";
+import { createMission, createSession, getMissions, getMe } from "@/lib/api";
 
 export default function Dashboard() {
   const router = useRouter();
@@ -32,19 +32,37 @@ export default function Dashboard() {
   const [url, setUrl] = useState("");
   const [context, setContext] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [missions, setMissions] = useState<any[]>([]);
 
   useEffect(() => {
-    const fetchMissions = async () => {
+    const init = async () => {
       try {
+        await getMe();
+        // If we get here, user is auth
+        setIsAuthLoading(false);
+
+        // Now fetch missions
         const data = await getMissions();
         setMissions(data);
       } catch (error) {
-        console.error("Failed to fetch missions:", error);
+        console.warn("Auth check failed, redirecting to login");
+        router.push("/login");
       }
     };
-    fetchMissions();
-  }, []);
+    init();
+  }, [router]);
+
+  if (isAuthLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#020617]">
+        <div className="flex flex-col items-center gap-4">
+          <Activity className="w-12 h-12 text-violet-500 animate-pulse" />
+          <p className="text-gray-400 animate-pulse">Authenticating...</p>
+        </div>
+      </div>
+    );
+  }
 
   const handleLaunch = async () => {
     setIsLoading(true);

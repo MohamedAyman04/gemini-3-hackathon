@@ -10,6 +10,7 @@ export async function createMission(data: {
     headers: {
       "Content-Type": "application/json",
     },
+    credentials: "include",
     body: JSON.stringify(data),
   });
 
@@ -21,7 +22,9 @@ export async function createMission(data: {
 }
 
 export async function getMissions() {
-  const response = await fetch(`${API_BASE_URL}/missions`);
+  const response = await fetch(`${API_BASE_URL}/missions`, {
+    credentials: "include",
+  });
   if (!response.ok) {
     throw new Error("Failed to fetch missions");
   }
@@ -34,6 +37,7 @@ export async function createSession(missionId: string) {
     headers: {
       "Content-Type": "application/json",
     },
+    credentials: "include",
     body: JSON.stringify({ missionId }),
   });
 
@@ -45,9 +49,21 @@ export async function createSession(missionId: string) {
 }
 
 export async function getSession(id: string) {
-  const response = await fetch(`${API_BASE_URL}/sessions/${id}`);
+  const response = await fetch(`${API_BASE_URL}/sessions/${id}`, {
+    credentials: "include",
+  });
   if (!response.ok) {
     throw new Error("Failed to fetch session");
+  }
+  return response.json();
+}
+
+export async function getMe() {
+  const response = await fetch(`${API_BASE_URL}/auth/me`, {
+    credentials: "include",
+  });
+  if (!response.ok) {
+    throw new Error("Not authenticated");
   }
   return response.json();
 }

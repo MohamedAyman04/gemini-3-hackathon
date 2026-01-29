@@ -15,6 +15,8 @@ import {
 } from "@/components/ui/Card";
 import Link from "next/link";
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+
 export default function SignupPage() {
   const router = useRouter();
   const [name, setName] = useState("");
@@ -34,7 +36,7 @@ export default function SignupPage() {
     setIsLoading(true);
 
     try {
-      const response = await fetch("http://localhost:5000/auth/signup", {
+      const response = await fetch(`${API_BASE_URL}/auth/signup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
