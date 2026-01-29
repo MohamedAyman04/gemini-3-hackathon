@@ -1,10 +1,12 @@
-import { Controller, Post, Body, Get } from '@nestjs/common';
+import { Controller, Post, Body, Get, UseGuards } from '@nestjs/common';
 import { GeminiService } from '../gemini/gemini.service';
 import { ConfigService } from '@nestjs/config';
 import { Octokit } from 'octokit';
 import { JiraService } from '../jira/jira.service';
 import { TrelloService } from '../trello/trello.service';
+import { AuthGuard } from '../auth/auth.guard';
 
+@UseGuards(AuthGuard)
 @Controller('analysis')
 export class AnalysisController {
   constructor(

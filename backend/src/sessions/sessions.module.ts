@@ -6,6 +6,7 @@ import { SessionsController } from './sessions.controller';
 import { SessionsGateway } from './sessions.gateway';
 import { Session } from './entities/session.entity';
 import { GeminiModule } from '../gemini/gemini.module';
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { GeminiModule } from '../gemini/gemini.module';
       name: 'analysis',
     }),
     GeminiModule,
+    AuthModule,
   ],
   controllers: [SessionsController],
   providers: [SessionsService, SessionsGateway],

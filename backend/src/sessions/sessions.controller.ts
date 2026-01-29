@@ -9,15 +9,18 @@ import {
   UseInterceptors,
   UploadedFile,
   NotFoundException,
+  UseGuards,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { SessionsService } from './sessions.service';
 import { CreateSessionDto } from './dto/create-session.dto';
 import { UpdateSessionDto } from './dto/update-session.dto';
+import { AuthGuard } from '../auth/auth.guard';
 
+@UseGuards(AuthGuard)
 @Controller('sessions')
 export class SessionsController {
-  constructor(private readonly sessionsService: SessionsService) { }
+  constructor(private readonly sessionsService: SessionsService) {}
 
   @Post()
   create(@Body() createSessionDto: CreateSessionDto) {

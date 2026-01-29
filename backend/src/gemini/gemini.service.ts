@@ -49,20 +49,28 @@ export class GeminiService implements OnModuleInit {
       .replace(/\{\{dom_events\}\}/g, JSON.stringify(data.dom_events, null, 2));
 
     try {
-      this.logger.log('Calling Gemini (Unified SDK) for script generation...');
+      this.logger.log('Calling Gemini for script generation...');
 
-      // New Pattern: client.models.generateContent
       const response = await this.genAI.models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: [{ role: 'user', parts: [{ text: fullPrompt }] }],
       });
 
-      let text = response.text || '';
-
-      // Clean up markdown blocks
-      return text.replace(/```typescript|```/g, '').trim();
+      return (response.text || '').replace(/```typescript|```/g, '').trim();
     } catch (error) {
       this.logger.error('Gemini Script Generation failed', error);
+      // Fallback to 2.0 if 1.5 is 404
+      if (error.status === 404) {
+        try {
+          const response = await this.genAI.models.generateContent({
+            model: 'gemini-3-flash-preview',
+            contents: [{ role: 'user', parts: [{ text: fullPrompt }] }],
+          });
+          return (response.text || '').replace(/```typescript|```/g, '').trim();
+        } catch (inner) {
+          throw inner;
+        }
+      }
       throw error;
     }
   }
@@ -153,12 +161,35 @@ export class GeminiService implements OnModuleInit {
       });
       return response.text || '';
     } catch (error) {
+      if (error.status === 404 || error.status === 429) {
+        const response = await this.genAI.models.generateContent({
+          model: 'gemini-3-flash-preview',
+          contents: [
+            {
+              role: 'user',
+              parts: [
+                { text: prompt },
+                {
+                  inlineData: {
+                    data: imageBuffer.toString('base64'),
+                    mimeType: 'image/jpeg',
+                  },
+                },
+              ],
+            },
+          ],
+        });
+        return response.text || '';
+      }
       this.logger.error('Image analysis failed', error);
       throw error;
     }
   }
 
-  async generateSessionSummary(transcript: string, logs: any[]): Promise<string> {
+  async generateSessionSummary(
+    transcript: string,
+    logs: any[],
+  ): Promise<string> {
     try {
       const prompt = `
         You are an expert user researcher.
@@ -175,14 +206,27 @@ export class GeminiService implements OnModuleInit {
         ${JSON.stringify(logs.slice(0, 50), null, 2)}
       `;
 
-      const response = await this.genAI.models.generateContent({
-        model: 'gemini-1.5-flash',
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      });
-
-      return response.text || 'No summary generated.';
+      try {
+        const response = await this.genAI.models.generateContent({
+          model: 'gemini-3-flash-preview',
+          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        });
+        return response.text || 'No summary generated.';
+      } catch (error) {
+        if (error.status === 404 || error.status === 429) {
+          const response = await this.genAI.models.generateContent({
+            model: 'gemini-3-flash-preview',
+            contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          });
+          return response.text || 'No summary generated.';
+        }
+        throw error;
+      }
     } catch (error) {
       this.logger.error('Session summary generation failed', error);
+      if (error.status === 429) {
+        return 'AI Summary is currently unavailable due to high demand. Please check back later.';
+      }
       return 'Failed to generate summary.';
     }
   }
@@ -266,7 +310,7 @@ export class GeminiService implements OnModuleInit {
                   },
                 ],
               },
-            })
+            }),
           );
         }
       },
