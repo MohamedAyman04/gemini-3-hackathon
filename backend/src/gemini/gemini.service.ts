@@ -52,7 +52,7 @@ export class GeminiService implements OnModuleInit {
       this.logger.log('Calling Gemini for script generation...');
 
       const response = await this.genAI.models.generateContent({
-        model: 'gemini-3-flash-preview',
+        model: 'gemini-2.5-flash',
         contents: [{ role: 'user', parts: [{ text: fullPrompt }] }],
       });
 
@@ -63,7 +63,7 @@ export class GeminiService implements OnModuleInit {
       if (error.status === 404) {
         try {
           const response = await this.genAI.models.generateContent({
-            model: 'gemini-3-flash-preview',
+            model: 'gemini-2.5-flash',
             contents: [{ role: 'user', parts: [{ text: fullPrompt }] }],
           });
           return (response.text || '').replace(/```typescript|```/g, '').trim();
@@ -143,7 +143,7 @@ export class GeminiService implements OnModuleInit {
   async analyzeImage(imageBuffer: Buffer, prompt: string): Promise<string> {
     try {
       const response = await this.genAI.models.generateContent({
-        model: 'gemini-3-flash-preview',
+        model: 'gemini-2.5-flash',
         contents: [
           {
             role: 'user',
@@ -163,7 +163,7 @@ export class GeminiService implements OnModuleInit {
     } catch (error) {
       if (error.status === 404 || error.status === 429) {
         const response = await this.genAI.models.generateContent({
-          model: 'gemini-3-flash-preview',
+          model: 'gemini-2.5-flash',
           contents: [
             {
               role: 'user',
@@ -208,14 +208,14 @@ export class GeminiService implements OnModuleInit {
 
       try {
         const response = await this.genAI.models.generateContent({
-          model: 'gemini-3-flash-preview',
+          model: 'gemini-2.5-flash',
           contents: [{ role: 'user', parts: [{ text: prompt }] }],
         });
         return response.text || 'No summary generated.';
       } catch (error) {
         if (error.status === 404 || error.status === 429) {
           const response = await this.genAI.models.generateContent({
-            model: 'gemini-3-flash-preview',
+            model: 'gemini-2.5-flash',
             contents: [{ role: 'user', parts: [{ text: prompt }] }],
           });
           return response.text || 'No summary generated.';
@@ -250,6 +250,7 @@ export class GeminiService implements OnModuleInit {
     const ws = new WebSocket(url);
 
     ws.on('open', () => {
+      this.logger.log('Connected to Gemini Live WebSocket');
       const setup_msg = {
         setup: {
           model: 'gemini-3-flash-preview',
@@ -262,28 +263,53 @@ export class GeminiService implements OnModuleInit {
           },
         },
       };
+      this.logger.debug('Sending Setup Message to Gemini');
       ws.send(JSON.stringify(setup_msg));
     });
 
-    ws.on('message', (data) => {
-      const response = JSON.parse(data.toString());
-      const audio =
-        response.serverContent?.modelTurn?.parts?.[0]?.inlineData?.data;
-      if (audio) onAudioDelta(audio);
+    ws.on('error', (err) => {
+      this.logger.error('Gemini WebSocket Error:', err);
+    });
 
-      const text = response.serverContent?.modelTurn?.parts?.[0]?.text;
-      if (text) {
-        if (text.includes('REPORT_BUG')) {
-          onIntervention('REPORT_BUG');
-        } else {
-          onText(text);
+    ws.on('close', (code, reason) => {
+      this.logger.warn(`Gemini WebSocket Closed: ${code} - ${reason}`);
+    });
+
+    ws.on('message', (data) => {
+      try {
+        const strData = data.toString();
+        // this.logger.debug(`Received raw message from Gemini: ${strData.slice(0, 100)}...`);
+        const response = JSON.parse(strData);
+
+        const audio = response.serverContent?.modelTurn?.parts?.[0]?.inlineData?.data;
+        if (audio) {
+          this.logger.debug(`Received Audio Delta from Gemini (${audio.length} bytes)`);
+          onAudioDelta(audio);
         }
+
+        const text = response.serverContent?.modelTurn?.parts?.[0]?.text;
+        if (text) {
+          this.logger.log(`Received Text from Gemini: "${text}"`);
+          if (text.includes('REPORT_BUG')) {
+            onIntervention('REPORT_BUG');
+          } else {
+            onText(text);
+          }
+        }
+
+        if (!audio && !text) {
+          this.logger.debug("Received non-content message from Gemini (likely turnComplete or empty)");
+        }
+
+      } catch (e) {
+        this.logger.error("Error parsing Gemini message", e);
       }
     });
 
     return {
       sendAudio: (chunk: Buffer) => {
         if (ws.readyState === WebSocket.OPEN) {
+          // this.logger.debug(`Sending Audio Chunk to Gemini (${chunk.length} bytes)`);
           ws.send(
             JSON.stringify({
               realtimeInput: {
@@ -296,10 +322,13 @@ export class GeminiService implements OnModuleInit {
               },
             }),
           );
+        } else {
+          this.logger.warn("Attempted to send audio but Gemini socket is NOT OPEN");
         }
       },
       sendImage: (chunk: Buffer) => {
         if (ws.readyState === WebSocket.OPEN) {
+          this.logger.debug(`Sending Image Frame to Gemini (${chunk.length} bytes)`);
           ws.send(
             JSON.stringify({
               realtimeInput: {
@@ -312,6 +341,8 @@ export class GeminiService implements OnModuleInit {
               },
             }),
           );
+        } else {
+          this.logger.warn("Attempted to send image but Gemini socket is NOT OPEN");
         }
       },
       close: () => ws.close(),

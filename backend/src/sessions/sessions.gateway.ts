@@ -142,6 +142,9 @@ export class SessionsGateway
     if (sessionId && this.activeSessions.has(sessionId)) {
       const session = this.activeSessions.get(sessionId);
       const buffer = Buffer.from(data.frame, 'base64');
+
+      console.log(`Gateway: Received Screen Frame (${buffer.length} bytes) for session ${sessionId}`);
+
       session.geminiSession.sendImage(buffer);
 
       // Broadcast to frontend viewers (exclude sender)

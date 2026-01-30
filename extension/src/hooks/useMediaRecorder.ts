@@ -23,6 +23,7 @@ export interface UseMediaRecorderReturn {
     checkPermissions: () => Promise<void>;
     permissionError: boolean;
     stream: MediaStream | null;
+    prepareStream: () => Promise<void>;
 }
 
 export const useMediaRecorder = (): UseMediaRecorderReturn => {
@@ -202,33 +203,68 @@ export const useMediaRecorder = (): UseMediaRecorderReturn => {
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const chunksRef = useRef<Blob[]>([]);
 
+    const prepareStream = useCallback(async () => {
+        setError(null);
+        try {
+            console.log("Preparing stream: Requesting Display Media (Screen) + User Media (Mic)");
+
+            // 1. Get Screen (Video)
+            // Note: This MUST be triggered by a user action
+            const screenStream = await navigator.mediaDevices.getDisplayMedia({
+                video: true,
+                audio: false // We capture mic separately
+            });
+
+            // 2. Get Mic (Audio)
+            const audioStream = await navigator.mediaDevices.getUserMedia({
+                audio: selectedAudioId ? { deviceId: { exact: selectedAudioId } } : true,
+                video: false
+            });
+
+            // 3. Combine
+            const tracks = [
+                ...screenStream.getVideoTracks(),
+                ...audioStream.getAudioTracks()
+            ];
+
+            const combinedStream = new MediaStream(tracks);
+            streamRef.current = combinedStream;
+            setStream(combinedStream);
+
+            // Setup Analyzer immediately for UI feedback
+            connectStreamToAnalyser(combinedStream);
+
+            // Handle user stopping screen share via browser UI
+            screenStream.getVideoTracks()[0].onended = () => {
+                console.log("User stopped screen sharing");
+                stopRecording();
+            };
+
+        } catch (err: any) {
+            console.error("Failed to prepare stream:", err);
+            // Verify this works...
+            if (err.name === 'NotAllowedError') {
+                setError('Permission denied for Screen/Mic.');
+            } else {
+                setError(err.message || 'Failed to capture screen.');
+            }
+            throw err;
+        }
+    }, [selectedAudioId]);
+
     const startRecording = useCallback(async (socket?: Socket | null) => {
         setError(null);
         try {
-            let newStream: MediaStream;
-            try {
-                // Try to get both audio and video (if selected)
-                // If video fails (common in Firefox popup due to permission prompt block), we fallback to audio-only
-                newStream = await getMediaStream(selectedAudioId, selectedVideoId);
-                setIsAudioEnabled(true);
-                setIsVideoEnabled(true);
-            } catch (err: any) {
-                console.warn("Failed to get audio+video stream, retrying audio-only:", err);
-
-                // Check for Firefox popup permission error or Not Found/Not Allowed
-                if (err.message?.includes('The object can not be found') || err.name === 'NotFoundError' || err.name === 'NotAllowedError') {
-                    newStream = await getMediaStream(selectedAudioId, false);
-                    setIsVideoEnabled(false);
-                    setIsAudioEnabled(true);
-                } else {
-                    throw err;
-                }
+            if (!streamRef.current) {
+                throw new Error("Stream not ready. Call prepareStream() first.");
             }
 
-            streamRef.current = newStream;
-            setStream(newStream);
+            const newStream = streamRef.current;
 
-            connectStreamToAnalyser(newStream);
+            // Ensure we are active
+            if (newStream.getTracks().some(t => t.readyState === 'ended')) {
+                throw new Error("Stream ended unexpectedly");
+            }
 
             const tabs = await chrome.tabs.query({ active: true, currentWindow: false, windowType: 'normal' });
             const targetTab = tabs[0];
@@ -352,11 +388,11 @@ export const useMediaRecorder = (): UseMediaRecorderReturn => {
                     connectStreamToAnalyser(streamRef.current!);
                 }
 
-                if (isVideoEnabled) {
-                    const videoStream = await getMediaStream(false, selectedVideoId);
-                    const newVideoTrack = videoStream.getVideoTracks()[0];
-                    updateStreamTrack('video', newVideoTrack);
-                }
+                // if (isVideoEnabled) {
+                //     const videoStream = await getMediaStream(false, selectedVideoId);
+                //     const newVideoTrack = videoStream.getVideoTracks()[0];
+                //     updateStreamTrack('video', newVideoTrack);
+                // }
 
             } catch (err) {
                 console.error("Failed to switch device:", err);
@@ -446,6 +482,7 @@ export const useMediaRecorder = (): UseMediaRecorderReturn => {
         setSelectedVideoId,
         checkPermissions,
         permissionError,
-        stream
+        stream,
+        prepareStream
     };
 };
