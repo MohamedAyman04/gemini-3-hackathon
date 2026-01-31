@@ -61,8 +61,13 @@ export default function LiveSession({
 
     socket.on("connect", () => {
       setIsConnected(true);
+      addLog("Connected to backend server", "SYSTEM");
       // Join as viewer
       socket.emit("join_session", { sessionId: sessionId, type: "viewer" });
+    });
+
+    socket.on("session_started", () => {
+      addLog("Session started by host", "SYSTEM");
     });
 
     socket.on("session_ended", (data: { reason: string }) => {
@@ -81,14 +86,28 @@ export default function LiveSession({
       setEmotion("Frustrated");
     });
 
+    let lastFrameLog = 0;
     socket.on("screen_frame", (data: { frame: string }) => {
       const img = document.getElementById("webcam-feed") as HTMLImageElement;
       if (img) {
         img.src = `data:image/jpeg;base64,${data.frame}`;
       }
+
+      const now = Date.now();
+      if (now - lastFrameLog > 5000) {
+        addLog("Received active webcam stream", "SYSTEM");
+        lastFrameLog = now;
+      }
     });
 
+    let lastEventLog = 0;
     socket.on("rrweb_events", async (events: any[]) => {
+      const now = Date.now();
+      if (now - lastEventLog > 2000) {
+        addLog(`Received ${events.length} UI activity events`, "USER");
+        lastEventLog = now;
+      }
+
       if (playerRef.current) {
         events.forEach((event) => {
           playerRef.current.addEvent(event);
@@ -97,11 +116,7 @@ export default function LiveSession({
         // Init player on first batch (ideally checks for snapshot)
         // We lazily init on first data
         if (events.length > 0) {
-          // We need to verify if we have a full snapshot (type 2) or if we can start anyway.
-          // In live mode, rrweb might wait for a snapshot.
-          // If we join mid-stream and miss type-2, we are in trouble unless backend sends latest state.
-          // For now, assume fresh start or robust enough.
-
+          addLog("Initializing UI replay player...", "SYSTEM");
           const { default: rrwebPlayer } = await import("rrweb-player");
 
           if (containerRef.current && !playerRef.current) {
@@ -117,13 +132,7 @@ export default function LiveSession({
               },
             });
 
-            // Handle resize?
-            playerRef.current.addEventListener(
-              "ui-update-progress",
-              (payload: any) => {
-                // console.log(payload);
-              },
-            );
+            addLog("UI Replay Player Ready", "SYSTEM");
           }
         }
       }
