@@ -19,7 +19,8 @@ import { Queue } from 'bullmq';
   },
 })
 export class SessionsGateway
-  implements OnGatewayConnection, OnGatewayDisconnect {
+  implements OnGatewayConnection, OnGatewayDisconnect
+{
   @WebSocketServer()
   server: Server;
 
@@ -29,7 +30,7 @@ export class SessionsGateway
     private readonly sessionsService: SessionsService,
     private readonly geminiService: GeminiService,
     @InjectQueue('analysis') private analysisQueue: Queue,
-  ) { }
+  ) {}
 
   handleConnection(client: Socket) {
     console.log(`Client connected: ${client.id}`);
@@ -41,7 +42,9 @@ export class SessionsGateway
     for (const [sessionId, sessionData] of this.activeSessions.entries()) {
       if (sessionData.hostId === client.id) {
         console.log(`Host left session ${sessionId}. Cleaning up Gemini.`);
-        this.server.to(sessionId).emit('session_ended', { reason: 'Host ended the session' });
+        this.server
+          .to(sessionId)
+          .emit('session_ended', { reason: 'Host ended the session' });
         sessionData.geminiSession.close();
         this.sessionsService.update(sessionId, { status: 'COMPLETED' });
         this.activeSessions.delete(sessionId);
@@ -54,33 +57,45 @@ export class SessionsGateway
     @MessageBody() data: { sessionId: string; type?: 'host' | 'viewer' },
     @ConnectedSocket() client: Socket,
   ) {
-    console.log(`Client ${client.id} joining session ${data.sessionId} as ${data.type || 'unknown'}`);
+    console.log(
+      `Client ${client.id} joining session ${data.sessionId} as ${data.type || 'unknown'}`,
+    );
+
+    // Always join the room first so the client can receive future broadcasts
+    client.join(data.sessionId);
 
     // If session is already active
     if (this.activeSessions.has(data.sessionId)) {
-      client.join(data.sessionId);
-      console.log(`Session ${data.sessionId} active. Client ${client.id} joined as ${data.type || 'viewer'}.`);
+      const session = this.activeSessions.get(data.sessionId);
+      console.log(
+        `Session ${data.sessionId} active. Client ${client.id} joined as ${data.type || 'viewer'}.`,
+      );
 
       // Request Snapshot from Host if a new Viewer joins
       if (data.type === 'viewer' || !data.type) {
-        const session = this.activeSessions.get(data.sessionId);
         if (session && session.hostId) {
           console.log(`Requesting snapshot from host ${session.hostId}`);
           this.server.to(session.hostId).emit('request_snapshot');
         }
       }
 
-      return { status: 'joined', sessionId: data.sessionId, role: data.type || 'viewer' };
+      return {
+        status: 'joined',
+        sessionId: data.sessionId,
+        role: data.type || 'viewer',
+      };
     }
 
     // If not active, only HOST can start it
     if (data.type === 'viewer') {
-      console.warn(`Viewer ${client.id} tried to join inactive session ${data.sessionId}`);
-      return { status: 'error', message: 'Session not active' };
+      console.warn(
+        `Viewer ${client.id} joined room for inactive session ${data.sessionId}`,
+      );
+      return { status: 'waiting', message: 'Session not yet started by host' };
     }
 
     // Assume Host (or unknown) is starting the session
-    client.join(data.sessionId);
+    // client.join(data.sessionId); // Already joined above
 
     // Fetch session and mission details
     const sessionObj = await this.sessionsService.findOne(data.sessionId);
@@ -95,7 +110,9 @@ export class SessionsGateway
       },
       (trigger) => {
         // AI detected a hurdle
-        this.server.to(data.sessionId).emit('ai_intervention', { type: trigger });
+        this.server
+          .to(data.sessionId)
+          .emit('ai_intervention', { type: trigger });
       },
       (text) => {
         // AI sent a text reply
@@ -112,10 +129,19 @@ export class SessionsGateway
       geminiSession,
     });
 
+    console.log(
+      `[SessionsGateway] Session ${data.sessionId} started by host ${client.id}. Gemini session created.`,
+    );
+
+    // Notify viewers and request initial snapshot from host
+    this.server
+      .to(data.sessionId)
+      .emit('session_started', { sessionId: data.sessionId });
+    client.emit('request_snapshot');
+
     // Update status in DB
     await this.sessionsService.update(data.sessionId, { status: 'RUNNING' });
 
-    console.log(`Session ${data.sessionId} started by host ${client.id}`);
     return { status: 'joined', sessionId: data.sessionId, role: 'host' };
   }
 
@@ -124,12 +150,28 @@ export class SessionsGateway
     @MessageBody() chunk: any,
     @ConnectedSocket() client: Socket,
   ) {
-    const sessionId = Array.from(client.rooms).find((r) => r !== client.id);
+    let sessionId = Array.from(client.rooms).find((r) => r !== client.id);
+
+    // Fallback search if room lookup fails
+    if (!sessionId) {
+      for (const [id, data] of this.activeSessions.entries()) {
+        if (data.hostId === client.id) {
+          sessionId = id;
+          break;
+        }
+      }
+    }
+
     if (sessionId && this.activeSessions.has(sessionId)) {
       const session = this.activeSessions.get(sessionId);
-      // chunk should be a Buffer or base64
       const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
       session.geminiSession.sendAudio(buffer);
+      // Log occasionally to avoid spam
+      if (Math.random() < 0.01) {
+        console.log(
+          `[SessionsGateway] Forwarding audio chunk for session ${sessionId}`,
+        );
+      }
     }
   }
 
@@ -138,7 +180,18 @@ export class SessionsGateway
     @MessageBody() data: { frame: string }, // base64 jpeg
     @ConnectedSocket() client: Socket,
   ) {
-    const sessionId = Array.from(client.rooms).find((r) => r !== client.id);
+    let sessionId = Array.from(client.rooms).find((r) => r !== client.id);
+
+    // Fallback search
+    if (!sessionId) {
+      for (const [id, sData] of this.activeSessions.entries()) {
+        if (sData.hostId === client.id) {
+          sessionId = id;
+          break;
+        }
+      }
+    }
+
     if (sessionId && this.activeSessions.has(sessionId)) {
       const session = this.activeSessions.get(sessionId);
       const buffer = Buffer.from(data.frame, 'base64');
@@ -146,6 +199,12 @@ export class SessionsGateway
 
       // Broadcast to frontend viewers (exclude sender)
       client.broadcast.to(sessionId).emit('screen_frame', data);
+
+      if (Math.random() < 0.05) {
+        console.log(
+          `[SessionsGateway] Broadcasting screen frame for session ${sessionId}`,
+        );
+      }
     }
   }
 
@@ -154,8 +213,21 @@ export class SessionsGateway
     @MessageBody() events: any[],
     @ConnectedSocket() client: Socket,
   ) {
-    const sessionId = Array.from(client.rooms).find((r) => r !== client.id);
+    let sessionId = Array.from(client.rooms).find((r) => r !== client.id);
+
+    if (!sessionId) {
+      for (const [id, sData] of this.activeSessions.entries()) {
+        if (sData.hostId === client.id) {
+          sessionId = id;
+          break;
+        }
+      }
+    }
+
     if (sessionId) {
+      console.log(
+        `[SessionsGateway] Received ${events.length} events for session ${sessionId}`,
+      );
       // Broadcast to all viewers (excluding sender ideally, but sender is extension so it's fine)
       client.broadcast.to(sessionId).emit('rrweb_events', events);
     }
