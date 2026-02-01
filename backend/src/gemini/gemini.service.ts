@@ -1,16 +1,15 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { GoogleGenAI, Modality, LiveServerMessage } from '@google/genai';
+import * as types from '@google/genai';
 import * as fs from 'fs';
 import * as path from 'path';
 
 @Injectable()
 export class GeminiService implements OnModuleInit {
   private readonly logger = new Logger(GeminiService.name);
-  private readonly LIVE_MODEL_ID =
-    'gemini-2.5-flash-native-audio-preview-12-2025';
   private apiKey: string | undefined;
-  private genAI: GoogleGenAI;
+  private genAI: types.GoogleGenAI;
+  private LIVE_MODEL = 'gemini-3-flash-preview';
 
   constructor(private configService: ConfigService) {
     this.apiKey = this.configService.get<string>('GEMINI_API_KEY');
@@ -25,7 +24,7 @@ export class GeminiService implements OnModuleInit {
       );
     }
 
-    this.genAI = new GoogleGenAI({
+    this.genAI = new types.GoogleGenAI({
       apiKey: this.apiKey,
     });
   }
@@ -53,27 +52,26 @@ export class GeminiService implements OnModuleInit {
       this.logger.log('Calling Gemini for script generation...');
 
       const response = await this.genAI.models.generateContent({
-        model: 'gemini-2.0-flash',
+        model: 'gemini-3-flash-preview',
         contents: [{ role: 'user', parts: [{ text: fullPrompt }] }],
       });
 
       return (response.text || '').replace(/```typescript|```/g, '').trim();
     } catch (error) {
       this.logger.error('Gemini Script Generation failed', error);
-      // Fallback
-      try {
-        const response = await this.genAI.models.generateContent({
-          model: 'gemini-1.5-flash',
-          contents: [{ role: 'user', parts: [{ text: fullPrompt }] }],
-        });
-        return (response.text || '').replace(/```typescript|```/g, '').trim();
-      } catch (inner) {
-        this.logger.error(
-          'Gemini Script Generation failed even with fallback',
-          inner,
-        );
-        throw inner;
+      // Fallback to 2.0 if 1.5 is 404
+      if (error.status === 404) {
+        try {
+          const response = await this.genAI.models.generateContent({
+            model: 'gemini-3-flash-preview',
+            contents: [{ role: 'user', parts: [{ text: fullPrompt }] }],
+          });
+          return (response.text || '').replace(/```typescript|```/g, '').trim();
+        } catch (inner) {
+          throw inner;
+        }
       }
+      throw error;
     }
   }
 
@@ -145,7 +143,7 @@ export class GeminiService implements OnModuleInit {
   async analyzeImage(imageBuffer: Buffer, prompt: string): Promise<string> {
     try {
       const response = await this.genAI.models.generateContent({
-        model: 'gemini-2.0-flash',
+        model: 'gemini-3-flash-preview',
         contents: [
           {
             role: 'user',
@@ -163,11 +161,9 @@ export class GeminiService implements OnModuleInit {
       });
       return response.text || '';
     } catch (error) {
-      this.logger.error('Image analysis failed', error);
-      // Fallback
-      try {
+      if (error.status === 404 || error.status === 429) {
         const response = await this.genAI.models.generateContent({
-          model: 'gemini-1.5-flash',
+          model: 'gemini-3-flash-preview',
           contents: [
             {
               role: 'user',
@@ -184,10 +180,9 @@ export class GeminiService implements OnModuleInit {
           ],
         });
         return response.text || '';
-      } catch (inner) {
-        this.logger.error('Image analysis failed even with fallback', inner);
-        throw inner;
       }
+      this.logger.error('Image analysis failed', error);
+      throw error;
     }
   }
 
@@ -213,32 +208,22 @@ export class GeminiService implements OnModuleInit {
 
       try {
         const response = await this.genAI.models.generateContent({
-          model: 'gemini-2.0-flash',
+          model: 'gemini-3-flash-preview',
           contents: [{ role: 'user', parts: [{ text: prompt }] }],
         });
         return response.text || 'No summary generated.';
       } catch (error) {
-        this.logger.error('Session summary generation failed', error);
-        // Fallback
-        try {
+        if (error.status === 404 || error.status === 429) {
           const response = await this.genAI.models.generateContent({
-            model: 'gemini-1.5-flash',
+            model: 'gemini-3-flash-preview',
             contents: [{ role: 'user', parts: [{ text: prompt }] }],
           });
           return response.text || 'No summary generated.';
-        } catch (inner) {
-          this.logger.error(
-            'Session summary generation failed even with fallback',
-            inner,
-          );
-          throw inner;
         }
+        throw error;
       }
     } catch (error) {
-      this.logger.error(
-        'Session summary generation failed (outer catch)',
-        error,
-      );
+      this.logger.error('Session summary generation failed', error);
       if (error.status === 429) {
         return 'AI Summary is currently unavailable due to high demand. Please check back later.';
       }
@@ -246,161 +231,53 @@ export class GeminiService implements OnModuleInit {
     }
   }
 
-  createLiveSession(
+  async createLiveSession(
     sessionId: string,
-    onAudioDelta: (audio: string) => void,
+    onAudio: (audio: string) => void,
     onIntervention: (trigger: string) => void,
     onText: (text: string) => void,
     missionContext: { url?: string; context?: string } = {},
   ) {
     this.logger.log(`Creating Live Session for ${sessionId}`);
 
-    const systemInstruction = `You are an AI assistant helping with: ${missionContext.context || 'user assistance'}`;
-    const MODEL_ID = this.LIVE_MODEL_ID;
+    const systemInstruction = `You are an AI assistant helping with: ${missionContext.context}`;
 
-    const responseQueue: LiveServerMessage[] = [];
-    let liveSession: any = null;
+    // Using the SDK helper to match your Hono logic
+    const session = await this.genAI.live.connect({
+      model: this.LIVE_MODEL,
+      config: {
+        responseModalities: [types.Modality.AUDIO],
+        systemInstruction: { parts: [{ text: systemInstruction }] },
+        outputAudioTranscription: {},
+        speechConfig: {
+          voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Zephyr' } },
+        },
+        tools: [{ googleSearch: {} }],
+      },
+      callbacks: {
+        onmessage: (message: types.LiveServerMessage) => {
+          // Handle Transcription -> onText
+          if (message.serverContent?.outputTranscription) {
+            onText(message.serverContent.outputTranscription.text || '');
+          }
 
-    // Initialize the connection asynchronously
-    const initializeSession = async () => {
-      try {
-        this.logger.log(`Connecting to Gemini Live API... Model: ${MODEL_ID}`);
-
-        // @ts-ignore - Using the new Live API
-        liveSession = await this.genAI.live.connect({
-          model: MODEL_ID,
-          config: {
-            responseModalities: [Modality.AUDIO],
-            systemInstruction: {
-              parts: [{ text: systemInstruction }],
-            },
-          },
-          callbacks: {
-            onopen: () => {
-              this.logger.log('Connected to Gemini Live API');
-            },
-            onmessage: (message: LiveServerMessage) => {
-              try {
-                // Handle transcript text
-                const transcript =
-                  message?.serverContent?.modelTurn?.parts?.find(
-                    (p) => p.text,
-                  )?.text;
-
-                if (transcript) {
-                  this.logger.log(`Received Text from Gemini: "${transcript}"`);
-                  if (transcript.includes('REPORT_BUG')) {
-                    onIntervention('REPORT_BUG');
-                  } else {
-                    onText(transcript);
-                  }
-                }
-
-                // Handle audio data
-                if (message?.data) {
-                  this.logger.debug(
-                    `Received Audio Delta from Gemini (${message.data.length} chars base64)`,
-                  );
-                  onAudioDelta(message.data);
-                }
-
-                // Queue message for processing
-                responseQueue.push(message);
-
-                if (message?.serverContent?.turnComplete) {
-                  this.logger.debug('Turn complete from Gemini');
-                }
-              } catch (e) {
-                this.logger.error('Error processing Gemini message', e);
+          // Handle Audio -> onAudio
+          const parts = message.serverContent?.modelTurn?.parts;
+          if (parts) {
+            parts.forEach((part) => {
+              if (part.inlineData?.data) {
+                onAudio(part.inlineData.data);
               }
-            },
-            onerror: (e: any) => {
-              this.logger.error('Gemini Live API Error:', e?.message || e);
-            },
-            onclose: () => {
-              this.logger.warn('Gemini Live API connection closed');
-            },
-          },
-        });
-
-        this.logger.log('Gemini Live Session initialized successfully');
-      } catch (error) {
-        this.logger.error('Failed to initialize Gemini Live Session:', error);
-        throw error;
-      }
-    };
-
-    // Start initialization
-    initializeSession().catch((err) => {
-      this.logger.error('Session initialization failed:', err);
+              // Handle specific triggers -> onIntervention
+              if (part.text && part.text.includes('REPORT_BUG')) {
+                onIntervention('REPORT_BUG');
+              }
+            });
+          }
+        },
+      },
     });
 
-    return {
-      sendAudio: async (chunk: Buffer) => {
-        if (!liveSession) {
-          this.logger.warn(
-            'Live session not yet initialized, queuing audio...',
-          );
-          // Wait a bit for initialization
-          await new Promise((resolve) => setTimeout(resolve, 100));
-        }
-
-        if (liveSession) {
-          try {
-            // @ts-ignore
-            await liveSession.sendRealtimeInput({
-              audio: {
-                mimeType: 'audio/pcm;rate=16000',
-                data: chunk.toString('base64'),
-              },
-            });
-          } catch (err) {
-            this.logger.error('Failed to send audio to Gemini:', err);
-          }
-        } else {
-          this.logger.warn('Cannot send audio: session still not ready');
-        }
-      },
-
-      sendImage: async (chunk: Buffer) => {
-        if (!liveSession) {
-          this.logger.warn(
-            'Live session not yet initialized, queuing image...',
-          );
-          await new Promise((resolve) => setTimeout(resolve, 100));
-        }
-
-        if (liveSession) {
-          try {
-            this.logger.debug(
-              `Sending Image Frame to Gemini (${chunk.length} bytes)`,
-            );
-            // @ts-ignore
-            await liveSession.sendRealtimeInput({
-              media: {
-                mimeType: 'image/jpeg',
-                data: chunk.toString('base64'),
-              },
-            });
-          } catch (err) {
-            this.logger.error('Failed to send image to Gemini:', err);
-          }
-        } else {
-          this.logger.warn('Cannot send image: session still not ready');
-        }
-      },
-
-      close: () => {
-        if (liveSession) {
-          try {
-            // @ts-ignore
-            liveSession.close();
-            this.logger.log('Gemini Live Session closed');
-          } catch (err) {
-            this.logger.error('Error closing Gemini Live Session:', err);
-          }
-        }
-      },
-    };
+    return session;
   }
 }

@@ -12,7 +12,7 @@ export class SessionsService {
     @InjectRepository(Session)
     private sessionsRepository: Repository<Session>,
     private geminiService: GeminiService,
-  ) { }
+  ) {}
 
   create(createSessionDto: CreateSessionDto) {
     const session = this.sessionsRepository.create(createSessionDto);
@@ -66,10 +66,29 @@ export class SessionsService {
       const summary = await this.geminiService.generateSessionSummary('', logs);
       session.analysis = { summary };
     } catch (e) {
-      console.error("Failed to generate summary", e);
+      console.error('Failed to generate summary', e);
     }
 
     return this.sessionsRepository.save(session);
+  }
+
+  async appendEvents(sessionId: string, newEvents: any[]) {
+    // Use COALESCE to handle the case where the events column is initially NULL
+    return this.sessionsRepository
+      .createQueryBuilder()
+      .update(Session)
+      .set({
+        events: () => `COALESCE(events, '[]'::jsonb) || :newEvents::jsonb`,
+      })
+      .setParameter('newEvents', JSON.stringify(newEvents)) // Driver handles escaping!
+      .where('id = :id', { id: sessionId })
+      .execute();
+  }
+
+  async appendTranscript(sessionId: string, text: string) {
+    const session = await this.findOne(sessionId);
+    const updatedTranscript = (session?.transcript || '') + '\n' + text;
+    return this.update(sessionId, { transcript: updatedTranscript });
   }
 
   remove(id: string) {

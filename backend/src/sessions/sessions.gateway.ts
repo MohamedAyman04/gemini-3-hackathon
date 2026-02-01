@@ -36,15 +36,30 @@ export class SessionsGateway
     console.log(`Client connected: ${client.id}`);
   }
 
-  handleDisconnect(client: Socket) {
+  async handleDisconnect(client: Socket) {
     console.log(`Client disconnected: ${client.id}`);
     // Cleanup Gemini session if Host disconnects
     for (const [sessionId, sessionData] of this.activeSessions.entries()) {
       if (sessionData.hostId === client.id) {
         console.log(`Host left session ${sessionId}. Cleaning up Gemini.`);
-        this.server
-          .to(sessionId)
-          .emit('session_ended', { reason: 'Host ended the session' });
+        const finalSession = await this.sessionsService.findOne(sessionId);
+
+        // FIX: Add this null check
+        if (!finalSession) {
+          console.error(
+            `Could not find session ${sessionId} for final analysis`,
+          );
+          return;
+        }
+
+        // 2. trigger the report generation with ACTUAL data
+        await this.analysisQueue.add('reproduce', {
+          sessionId: sessionId,
+          transcript: finalSession.transcript,
+          dom_events: finalSession.events,
+        });
+
+        // 3. cleanup gemini session
         sessionData.geminiSession.close();
         this.sessionsService.update(sessionId, { status: 'COMPLETED' });
         this.activeSessions.delete(sessionId);
@@ -102,7 +117,7 @@ export class SessionsGateway
     const mission = sessionObj?.mission;
 
     // Initialize Gemini Live Session
-    const geminiSession = this.geminiService.createLiveSession(
+    const geminiSession = await this.geminiService.createLiveSession(
       data.sessionId,
       (audioBase64) => {
         // Emit to ALL clients in the room (Host + Viewers)
@@ -115,6 +130,7 @@ export class SessionsGateway
           .emit('ai_intervention', { type: trigger });
       },
       (text) => {
+        this.sessionsService.appendTranscript(data.sessionId, text);
         // AI sent a text reply
         this.server.to(data.sessionId).emit('ai_text', { text });
       },
@@ -164,8 +180,12 @@ export class SessionsGateway
 
     if (sessionId && this.activeSessions.has(sessionId)) {
       const session = this.activeSessions.get(sessionId);
-      const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
-      session.geminiSession.sendAudio(buffer);
+      session.geminiSession.sendRealtimeInput({
+        media: {
+          data: chunk,
+          mimeType: 'audio/pcm;rate=16000',
+        },
+      });
       // Log occasionally to avoid spam
       if (Math.random() < 0.01) {
         console.log(
@@ -194,8 +214,12 @@ export class SessionsGateway
 
     if (sessionId && this.activeSessions.has(sessionId)) {
       const session = this.activeSessions.get(sessionId);
-      const buffer = Buffer.from(data.frame, 'base64');
-      session.geminiSession.sendImage(buffer);
+      session.geminiSession.sendRealtimeInput({
+        media: {
+          data: data.frame,
+          mimeType: 'image/jpeg',
+        },
+      });
 
       // Broadcast to frontend viewers (exclude sender)
       client.broadcast.to(sessionId).emit('screen_frame', data);
@@ -230,6 +254,8 @@ export class SessionsGateway
       );
       // Broadcast to all viewers (excluding sender ideally, but sender is extension so it's fine)
       client.broadcast.to(sessionId).emit('rrweb_events', events);
+
+      this.sessionsService.appendEvents(sessionId, events);
     }
   }
 
