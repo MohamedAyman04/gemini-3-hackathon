@@ -46,6 +46,9 @@ export const useMediaRecorder = (): UseMediaRecorderReturn => {
     const audioContextRef = useRef<AudioContext | null>(null);
     const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
     const analyserRef = useRef<AnalyserNode | null>(null);
+    const prevAudioId = useRef(selectedAudioId);
+    const prevVideoId = useRef(selectedVideoId);
+
     const animationFrameRef = useRef<number | null>(null);
 
     const [permissionError, setPermissionError] = useState<boolean>(false);
@@ -299,7 +302,12 @@ export const useMediaRecorder = (): UseMediaRecorderReturn => {
                 if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = ''; // Let browser choose default
             }
 
+
             console.log("Starting MediaRecorder with mimeType:", mimeType);
+
+            // SYNC REFS to prevent redundant switching in useEffect
+            prevAudioId.current = selectedAudioId;
+            prevVideoId.current = selectedVideoId;
 
             const options = mimeType ? { mimeType } : undefined;
             const mediaRecorder = new MediaRecorder(newStream, options);
@@ -321,15 +329,57 @@ export const useMediaRecorder = (): UseMediaRecorderReturn => {
                 }
                 const ctx = audioContextRef.current;
 
+                if (ctx.state === 'suspended') {
+                    console.log("AudioContext suspended, resuming...");
+                    await ctx.resume();
+                }
+                console.log("AudioContext State:", ctx.state, "SampleRate:", ctx.sampleRate);
+
+                // DEBUG AUDIO TRACKS
+                const audioTracks = newStream.getAudioTracks();
+                console.log("Audio Tracks:", audioTracks.map(t => ({
+                    label: t.label,
+                    enabled: t.enabled,
+                    muted: t.muted,
+                    readyState: t.readyState,
+                    id: t.id
+                })));
+
+                if (audioTracks.length === 0) {
+                    console.error("NO AUDIO TRACKS FOUND IN STREAM!");
+                }
+
                 const processSource = ctx.createMediaStreamSource(newStream);
 
                 const processor = ctx.createScriptProcessor(4096, 1, 1);
                 processorRef.current = processor;
 
-                processor.onaudioprocess = (e) => {
-                    if (!socket.connected) return;
+                let callbackCount = 0;
 
+                processor.onaudioprocess = (e) => {
+                    // if (!socket.connected) return; // Allow logging even if disconnected for debug
+                    callbackCount++;
                     const inputData = e.inputBuffer.getChannelData(0);
+
+                    // Always log the first 5 callbacks to prove connectivity
+                    if (callbackCount <= 5) {
+                        let rawSum = 0;
+                        for (let i = 0; i < Math.min(100, inputData.length); i++) rawSum += Math.abs(inputData[i]);
+                        console.log(`onaudioprocess #${callbackCount}: rawSum (first 100) = ${rawSum}`);
+                    }
+
+                    // AMPLIFY VOLUME (10x Gain) because input was extremely quiet (0.003 avg)
+                    for (let i = 0; i < inputData.length; i++) {
+                        inputData[i] *= 10.0;
+                    }
+
+                    // Simple silence detection for debugging
+                    let sum = 0;
+                    for (let i = 0; i < inputData.length; i += 100) sum += Math.abs(inputData[i]);
+                    if (sum > 0.01 && Math.random() < 0.05) {
+                        console.log("Mic Input Activity Detected (Amplified)", sum);
+                    }
+
                     const downsampled = downsample(inputData, ctx.sampleRate, 16000);
                     const pcm16 = convertFloat32ToInt16(downsampled);
                     socket.emit('audio_chunk', pcm16.buffer);
@@ -377,22 +427,28 @@ export const useMediaRecorder = (): UseMediaRecorderReturn => {
         }
     }, [selectedAudioId, selectedVideoId, cleanup]);
 
+
     useEffect(() => {
         if (!isRecording) return;
+
+        // Skip switch if devices haven't actually changed
+        if (selectedAudioId === prevAudioId.current && selectedVideoId === prevVideoId.current) {
+            return;
+        }
+
         const switchDevice = async () => {
             try {
-                if (isAudioEnabled) {
+                if (isAudioEnabled && selectedAudioId !== prevAudioId.current) {
+                    console.log("Switching Audio Device to:", selectedAudioId);
                     const audioStream = await getMediaStream(selectedAudioId, false);
                     const newAudioTrack = audioStream.getAudioTracks()[0];
                     updateStreamTrack('audio', newAudioTrack);
                     connectStreamToAnalyser(streamRef.current!);
                 }
+                prevAudioId.current = selectedAudioId;
 
-                // if (isVideoEnabled) {
-                //     const videoStream = await getMediaStream(false, selectedVideoId);
-                //     const newVideoTrack = videoStream.getVideoTracks()[0];
-                //     updateStreamTrack('video', newVideoTrack);
-                // }
+                // if (isVideoEnabled) ... (Video switching logic if uncommented later)
+                prevVideoId.current = selectedVideoId;
 
             } catch (err) {
                 console.error("Failed to switch device:", err);

@@ -9,7 +9,8 @@ export class GeminiService implements OnModuleInit {
   private readonly logger = new Logger(GeminiService.name);
   private apiKey: string | undefined;
   private genAI: types.GoogleGenAI;
-  private LIVE_MODEL = 'gemini-3-flash-preview';
+  // private LIVE_MODEL = 'gemini-3-flash-preview';
+  private LIVE_MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
 
   constructor(private configService: ConfigService) {
     this.apiKey = this.configService.get<string>('GEMINI_API_KEY');
@@ -20,7 +21,7 @@ export class GeminiService implements OnModuleInit {
         'GEMINI_API_KEY environment variable is not set. Please set it before using Gemini features.',
       );
       throw new Error(
-        'GEMINI_API_KEY is required. Please set the GEMINI_API_KEY environment variable.',
+        'gemini-2.5-flash-native-audio-preview-12-2025',
       );
     }
 
@@ -255,7 +256,22 @@ export class GeminiService implements OnModuleInit {
         tools: [{ googleSearch: {} }],
       },
       callbacks: {
+        onopen: () => {
+          this.logger.log('Gemini Live WebSocket Opened');
+        },
+        onerror: (error) => {
+          this.logger.error('Gemini Live WebSocket Error', error);
+        },
+        onclose: (event) => {
+          this.logger.warn(`Gemini Live WebSocket Closed: ${event.code} - ${event.reason}`);
+        },
         onmessage: (message: types.LiveServerMessage) => {
+          // Handle Interruption
+          if (message.serverContent?.interrupted) {
+            this.logger.log('Gemini Interrupted');
+            onIntervention('INTERRUPTED');
+          }
+
           // Handle Transcription -> onText
           if (message.serverContent?.outputTranscription) {
             onText(message.serverContent.outputTranscription.text || '');
@@ -266,6 +282,7 @@ export class GeminiService implements OnModuleInit {
           if (parts) {
             parts.forEach((part) => {
               if (part.inlineData?.data) {
+                this.logger.log(`Received Audio Chunk from Gemini: ${part.inlineData.data.length} chars`);
                 onAudio(part.inlineData.data);
               }
               // Handle specific triggers -> onIntervention
@@ -278,6 +295,7 @@ export class GeminiService implements OnModuleInit {
       },
     });
 
+    this.logger.log('Gemini Live Session Correctly Connected');
     return session;
   }
 }

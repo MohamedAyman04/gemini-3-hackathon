@@ -10,6 +10,7 @@ interface UseSocketReturn {
     disconnectSocket: () => void;
     audioQueue: string[]; // Base64 strings from AI
     consumeAudio: () => string | undefined;
+    clearQueue: () => void;
     messages: { text: string; source: 'ai' | 'user' }[];
 }
 
@@ -46,13 +47,14 @@ export const useSocket = (): UseSocketReturn => {
         });
 
         newSocket.on('ai_audio', (data: { audio: string }) => {
-            // data.audio is base64 PCM or Wav? 
-            // Backend sends: "mediaChunks: [{ mimeType: 'audio/pcm;rate=24000', data: base64 }]" -> Gemini response...
-            // Wait, Gemini Live API output is 24kHz PCM according to docs usually. 
-            // In backend gateway: "client.emit('ai_audio', { audio: audioBase64 });"
-            // The data comes from "response.serverContent.modelTurn.parts[0].inlineData.data".
-            // So it IS base64 PCM.
+            // data.audio is base64 PCM 16-bit 24kHz
+            console.log("Received AI Audio Chunk", data.audio.substring(0, 20) + "...");
             audioQueueRef.current.push(data.audio);
+        });
+
+        newSocket.on('ai_interrupted', () => {
+            console.log("AI Interrupted! Clearing queue.");
+            audioQueueRef.current = [];
         });
 
         newSocket.on('ai_text', (data: { text: string }) => {
@@ -91,6 +93,10 @@ export const useSocket = (): UseSocketReturn => {
         return audioQueueRef.current.shift();
     }, []);
 
+    const clearQueue = useCallback(() => {
+        audioQueueRef.current = [];
+    }, []);
+
     // Cleanup on unmount
     useEffect(() => {
         return () => {
@@ -107,6 +113,7 @@ export const useSocket = (): UseSocketReturn => {
         disconnectSocket,
         audioQueue: audioQueueRef.current, // Helper, might be stale in UI but ok for debug
         consumeAudio,
+        clearQueue,
         messages
     };
 };

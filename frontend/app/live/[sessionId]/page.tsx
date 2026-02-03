@@ -41,6 +41,10 @@ export default function LiveSession({
   const [isSessionEnded, setIsSessionEnded] = useState(false);
   const [sessionData, setSessionData] = useState<any>(null);
 
+  // Audio Context Ref
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const nextStartTimeRef = useRef<number>(0);
+
   // Fetch session details for start time / metadata
   useEffect(() => {
     fetch(`http://localhost:5000/sessions/${sessionId}`)
@@ -80,6 +84,61 @@ export default function LiveSession({
       addLog(data.text, "AI");
     });
 
+    // Handle Audio Playback (User & AI)
+    const playAudioChunk = (base64Audio: string, rate: number = 16000) => {
+      try {
+        if (!audioContextRef.current) {
+          audioContextRef.current = new AudioContext({ sampleRate: rate });
+        }
+        // Ensure running
+        if (audioContextRef.current.state === 'suspended') {
+          audioContextRef.current.resume();
+        }
+
+        const ctx = audioContextRef.current;
+        const binaryString = window.atob(base64Audio);
+        const len = binaryString.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+
+        const int16 = new Int16Array(bytes.buffer);
+        const float32 = new Float32Array(int16.length);
+        for (let i = 0; i < int16.length; i++) {
+          float32[i] = int16[i] / 32768;
+        }
+
+        const audioBuffer = ctx.createBuffer(1, float32.length, rate);
+        audioBuffer.copyToChannel(float32, 0);
+
+        const source = ctx.createBufferSource();
+        source.buffer = audioBuffer;
+        source.connect(ctx.destination);
+
+        const currentTime = ctx.currentTime;
+        let startTime = nextStartTimeRef.current;
+        if (startTime < currentTime) startTime = currentTime;
+
+        source.start(startTime);
+        nextStartTimeRef.current = startTime + audioBuffer.duration;
+
+      } catch (e) {
+        console.error("Error playing audio chunk", e);
+      }
+    };
+
+    // Listen for User Audio (16kHz)
+    socket.on("user_audio", (chunk: ArrayBuffer) => {
+      const base64 = btoa(new Uint8Array(chunk).reduce((data, byte) => data + String.fromCharCode(byte), ''));
+      playAudioChunk(base64, 16000);
+    });
+
+    // Listen for AI Audio (24kHz)
+    socket.on("ai_audio", (data: { audio: string }) => {
+      playAudioChunk(data.audio, 24000);
+    });
+
     socket.on("ai_intervention", (data) => {
       addLog(`Intervention Triggered: ${data.type}`, "SYSTEM");
       setFrictionScore((prev) => Math.min(100, prev + 10));
@@ -113,14 +172,12 @@ export default function LiveSession({
           playerRef.current.addEvent(event);
         });
       } else {
-        // Init player on first batch (ideally checks for snapshot)
-        // We lazily init on first data
         if (events.length > 0) {
           addLog("Initializing UI replay player...", "SYSTEM");
           const { default: rrwebPlayer } = await import("rrweb-player");
 
           if (containerRef.current && !playerRef.current) {
-            containerRef.current.innerHTML = ""; // clear waiting text
+            containerRef.current.innerHTML = "";
             playerRef.current = new rrwebPlayer({
               target: containerRef.current,
               props: {
@@ -145,7 +202,6 @@ export default function LiveSession({
     return () => {
       socket.disconnect();
       if (playerRef.current) {
-        // Cleanup? rrweb-player might not have a destroy property easily accessible or we just remove container content
         playerRef.current.pause();
         playerRef.current = null;
       }
@@ -250,9 +306,18 @@ export default function LiveSession({
             </div>
 
             {/* Overlay Status Text */}
-            {(!isConnected || isSessionEnded) && (
-              <div className="absolute inset-0 flex items-center justify-center text-gray-400 pointer-events-none z-10 bg-black/50">
+            {(!isConnected || isSessionEnded || audioContextRef.current?.state === 'suspended') && (
+              <div className="absolute inset-0 flex flex-col gap-4 items-center justify-center text-gray-400 z-10 bg-black/50">
                 {!isConnected && !isSessionEnded && "Connecting to Server..."}
+                {isConnected && !isSessionEnded && (
+                  <Button
+                    onClick={() => audioContextRef.current?.resume()}
+                    variant="primary"
+                    className="bg-purple-600 hover:bg-purple-700 text-white"
+                  >
+                    <Mic className="w-4 h-4 mr-2" /> Click to Unmute / Enable Audio
+                  </Button>
+                )}
               </div>
             )}
 

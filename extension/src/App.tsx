@@ -27,6 +27,7 @@ function App() {
     connectSocket,
     disconnectSocket,
     consumeAudio,
+    // clearQueue,
     messages,
   } = useSocket();
   const {
@@ -81,14 +82,27 @@ function App() {
 
   // Audio Player Loop
   useEffect(() => {
-    const processQueue = async () => {
-      const chunk = consumeAudio();
-      if (chunk) {
-        if (!audioContextRef.current) {
-          audioContextRef.current = new AudioContext({ sampleRate: 24000 });
-        }
-        const ctx = audioContextRef.current;
+    // We start the loop, but processing only happens when isRecording is true
+    let animationFrameId: number;
 
+    const processQueue = async () => {
+      // 1. Check if AudioContext is ready/resumed
+      if (audioContextRef.current?.state === 'suspended') {
+        try {
+          await audioContextRef.current.resume();
+          console.log("Resumed AudioContext");
+        } catch (e) { /* ignore */ }
+      }
+
+      // 2. Consume Audio
+      const chunk = consumeAudio();
+      if (chunk && audioContextRef.current) {
+        // Did we get a Clear signal?
+        // useSocket clears the queue, we just need to ensure we don't play stale chunks?
+        // Since we consume one by one, if queue is cleared, consumeAudio returns undefined next time.
+        // So we are good.
+
+        const ctx = audioContextRef.current;
         try {
           const binaryString = window.atob(chunk);
           const len = binaryString.length;
@@ -114,6 +128,7 @@ function App() {
           let startTime = nextStartTimeRef.current;
           if (startTime < currentTime) startTime = currentTime;
 
+          // console.log("Playing Audio Chunk", startTime);
           source.start(startTime);
           nextStartTimeRef.current = startTime + audioBuffer.duration;
         } catch (e) {
@@ -122,7 +137,7 @@ function App() {
       }
 
       if (isRecording) {
-        requestAnimationFrame(processQueue);
+        animationFrameId = requestAnimationFrame(processQueue);
       }
     };
 
@@ -131,12 +146,24 @@ function App() {
     }
 
     return () => {
-      if (!isRecording && audioContextRef.current) {
-        audioContextRef.current.close().catch(() => { });
-        audioContextRef.current = null;
-      }
+      if (animationFrameId) cancelAnimationFrame(animationFrameId);
     };
   }, [isRecording, consumeAudio]);
+
+  // Clean AudioContext on Unmount only, NOT on stopRecording (to allow reuse?)
+  // Actually documentation says close it.
+  useEffect(() => {
+    return () => {
+      if (audioContextRef.current) audioContextRef.current.close();
+    }
+  }, []);
+
+  // Watch for "ai_interrupted" via socket side-effect (or just check queue clear)
+  // useSocket clears queue internaly. We just need to stop CURRENTLY playing audio?
+  // Web Audio API text scheduling is hard to stop individually without disconnecting nodes.
+  // For simplicity, we just clear the queue for *future* chunks. 
+  // If we wanted to stop immediate sound, we'd need to track active nodes. 
+  // Let's stick to queue clearing for now as per plan.
 
   const [pendingSession, setPendingSession] = useState(false);
 
@@ -194,6 +221,14 @@ function App() {
 
     try {
       let missionId = selectedMissionId;
+
+      // Initialize Audio Context inside User Gesture
+      if (!audioContextRef.current) {
+        audioContextRef.current = new AudioContext({ sampleRate: 24000 });
+      }
+      if (audioContextRef.current.state === 'suspended') {
+        await audioContextRef.current.resume();
+      }
 
       // Create Mission if needed
       if (isCreating) {
@@ -714,8 +749,8 @@ function App() {
               >
                 <div
                   className={`max-w-[85%] text-xs p-2 rounded-lg ${msg.source === "ai"
-                      ? "bg-purple-900/30 border border-purple-800/50 text-purple-200 rounded-tl-none"
-                      : "bg-gray-800 border border-gray-700 text-gray-300 rounded-tr-none"
+                    ? "bg-purple-900/30 border border-purple-800/50 text-purple-200 rounded-tl-none"
+                    : "bg-gray-800 border border-gray-700 text-gray-300 rounded-tr-none"
                     }`}
                 >
                   {msg.source === "ai" && (

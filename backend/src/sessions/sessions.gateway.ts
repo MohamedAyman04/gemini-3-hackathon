@@ -120,13 +120,18 @@ export class SessionsGateway
       data.sessionId,
       (audioBase64) => {
         // Emit to ALL clients in the room (Host + Viewers)
+        console.log(`[SessionsGateway] Emitting ai_audio to ${data.sessionId}, size: ${audioBase64.length}`);
         this.server.to(data.sessionId).emit('ai_audio', { audio: audioBase64 });
       },
       (trigger) => {
-        // AI detected a hurdle
-        this.server
-          .to(data.sessionId)
-          .emit('ai_intervention', { type: trigger });
+        // AI detected a hurdle OR was interrupted
+        if (trigger === 'INTERRUPTED') {
+          this.server.to(data.sessionId).emit('ai_interrupted');
+        } else {
+          this.server
+            .to(data.sessionId)
+            .emit('ai_intervention', { type: trigger });
+        }
       },
       (text) => {
         this.sessionsService.appendTranscript(data.sessionId, text);
@@ -179,18 +184,28 @@ export class SessionsGateway
 
     if (sessionId && this.activeSessions.has(sessionId)) {
       const session = this.activeSessions.get(sessionId);
+
+      // Log input size
+      // console.log(`[SessionsGateway] Sending audio chunk to Gemini for ${sessionId}, size: ${chunk.byteLength || chunk.length}`);
+
+      const audioBuffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+
       session.geminiSession.sendRealtimeInput({
         media: {
-          data: chunk,
           mimeType: 'audio/pcm;rate=16000',
+          data: audioBuffer.toString('base64'),
         },
       });
       // Log occasionally to avoid spam
-      if (Math.random() < 0.01) {
+      if (Math.random() < 0.05) {
         console.log(
           `[SessionsGateway] Forwarding audio chunk for session ${sessionId}`,
         );
       }
+
+      // Broadcast user audio to viewers (Live View)
+      // chunk is already 16kHz PCM
+      client.broadcast.to(sessionId).emit('user_audio', chunk);
     }
   }
 
