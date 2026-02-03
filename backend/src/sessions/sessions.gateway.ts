@@ -228,17 +228,24 @@ export class SessionsGateway
 
     if (sessionId && this.activeSessions.has(sessionId)) {
       const session = this.activeSessions.get(sessionId);
-      session.geminiSession.sendRealtimeInput({
-        media: {
-          data: data.frame,
-          mimeType: 'image/jpeg',
-        },
-      });
+
+      // Throttling: Only send to Gemini every ~1000ms (1 FPS)
+      // Broadcast to viewers every frame (10 FPS)
+      const now = Date.now();
+      if (!session.lastGeminiFrameTime || now - session.lastGeminiFrameTime > 1000) {
+        session.lastGeminiFrameTime = now;
+        session.geminiSession.sendRealtimeInput({
+          media: {
+            data: data.frame,
+            mimeType: 'image/jpeg',
+          },
+        });
+      }
 
       // Broadcast to frontend viewers (exclude sender)
       client.broadcast.to(sessionId).emit('screen_frame', data);
 
-      if (Math.random() < 0.05) {
+      if (Math.random() < 0.01) { // Reduced log frequency further
         console.log(
           `[SessionsGateway] Broadcasting screen frame for session ${sessionId}`,
         );

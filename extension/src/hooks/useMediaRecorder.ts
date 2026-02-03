@@ -388,11 +388,11 @@ export const useMediaRecorder = (): UseMediaRecorderReturn => {
                 processSource.connect(processor);
                 processor.connect(ctx.destination);
 
-                // 2. Video Streaming (Low FPS)
+                // 2. Video Streaming (Higher FPS for Viewers, backend throttles for AI)
                 if (!canvasRef.current) {
                     canvasRef.current = document.createElement('canvas');
-                    canvasRef.current.width = 640;
-                    canvasRef.current.height = 360;
+                    canvasRef.current.width = 1280; // 720p for better readability
+                    canvasRef.current.height = 720;
                 }
                 const canvas = canvasRef.current;
                 const canvasCtx = canvas.getContext('2d');
@@ -407,12 +407,11 @@ export const useMediaRecorder = (): UseMediaRecorderReturn => {
 
                     if (vid.readyState === vid.HAVE_ENOUGH_DATA) {
                         canvasCtx.drawImage(vid, 0, 0, canvas.width, canvas.height);
-                        const dataUrl = canvas.toDataURL('image/jpeg', 0.5);
+                        const dataUrl = canvas.toDataURL('image/jpeg', 0.6); // Slightly better quality
                         const base64 = dataUrl.split(',')[1];
                         socket.emit('screen_frame', { frame: base64 });
-                        // console.log("Sent frame size:", base64.length); 
                     }
-                }, 500); // Reduced FPS to 2 for better performance
+                }, 100); // 10 FPS (100ms interval)
             }
 
         } catch (err: any) {
