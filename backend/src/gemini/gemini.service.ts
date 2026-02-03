@@ -52,7 +52,7 @@ export class GeminiService implements OnModuleInit {
       this.logger.log('Calling Gemini for script generation...');
 
       const response = await this.genAI.models.generateContent({
-        model: 'gemini-3-flash-preview',
+        model: 'gemini-2.5-flash',
         contents: [{ role: 'user', parts: [{ text: fullPrompt }] }],
       });
 
@@ -63,7 +63,7 @@ export class GeminiService implements OnModuleInit {
       if (error.status === 404) {
         try {
           const response = await this.genAI.models.generateContent({
-            model: 'gemini-3-flash-preview',
+            model: 'gemini-2.5-flash',
             contents: [{ role: 'user', parts: [{ text: fullPrompt }] }],
           });
           return (response.text || '').replace(/```typescript|```/g, '').trim();
@@ -143,7 +143,7 @@ export class GeminiService implements OnModuleInit {
   async analyzeImage(imageBuffer: Buffer, prompt: string): Promise<string> {
     try {
       const response = await this.genAI.models.generateContent({
-        model: 'gemini-3-flash-preview',
+        model: 'gemini-2.5-flash',
         contents: [
           {
             role: 'user',
@@ -163,7 +163,7 @@ export class GeminiService implements OnModuleInit {
     } catch (error) {
       if (error.status === 404 || error.status === 429) {
         const response = await this.genAI.models.generateContent({
-          model: 'gemini-3-flash-preview',
+          model: 'gemini-2.5-flash',
           contents: [
             {
               role: 'user',
@@ -208,14 +208,14 @@ export class GeminiService implements OnModuleInit {
 
       try {
         const response = await this.genAI.models.generateContent({
-          model: 'gemini-3-flash-preview',
+          model: 'gemini-2.5-flash',
           contents: [{ role: 'user', parts: [{ text: prompt }] }],
         });
         return response.text || 'No summary generated.';
       } catch (error) {
         if (error.status === 404 || error.status === 429) {
           const response = await this.genAI.models.generateContent({
-            model: 'gemini-3-flash-preview',
+            model: 'gemini-2.5-flash',
             contents: [{ role: 'user', parts: [{ text: prompt }] }],
           });
           return response.text || 'No summary generated.';

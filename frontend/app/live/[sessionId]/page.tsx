@@ -88,7 +88,7 @@ export default function LiveSession({
 
     let lastFrameLog = 0;
     socket.on("screen_frame", (data: { frame: string }) => {
-      const img = document.getElementById("webcam-feed") as HTMLImageElement;
+      const img = document.getElementById("live-stream-feed") as HTMLImageElement;
       if (img) {
         img.src = `data:image/jpeg;base64,${data.frame}`;
       }
@@ -240,21 +240,19 @@ export default function LiveSession({
         {/* Main Screen Stream */}
         <div className="lg:col-span-3 flex flex-col gap-4">
           <div className="relative flex-1 rounded-2xl bg-black border border-white/10 overflow-hidden group">
-            {/* Live RRWeb Container */}
-            <div
-              ref={containerRef}
-              id="rrweb-container"
-              className="absolute inset-0 w-full h-full bg-white"
-            />
+            {/* Live Screen Stream Container */}
+            <div className="absolute inset-0 w-full h-full bg-black flex items-center justify-center">
+              <img
+                id="live-stream-feed"
+                className="w-full h-full object-contain"
+                alt="Waiting for Live Stream..."
+              />
+            </div>
 
-            {/* Overlay Status Text - Manually positioned so React doesn't fight rrweb for the container children */}
-            {(!isConnected || (!playerRef.current && !isSessionEnded)) && (
-              <div className="absolute inset-0 flex items-center justify-center text-gray-400 pointer-events-none z-10">
-                {!isConnected && !isSessionEnded && "Connecting..."}
-                {isConnected &&
-                  !playerRef.current &&
-                  !isSessionEnded &&
-                  "Waiting for session data..."}
+            {/* Overlay Status Text */}
+            {(!isConnected || isSessionEnded) && (
+              <div className="absolute inset-0 flex items-center justify-center text-gray-400 pointer-events-none z-10 bg-black/50">
+                {!isConnected && !isSessionEnded && "Connecting to Server..."}
               </div>
             )}
 
@@ -271,36 +269,9 @@ export default function LiveSession({
                   <Button onClick={() => router.push("/")} variant="secondary">
                     Back to Dashboard
                   </Button>
-                  <Button
-                    onClick={() => router.push(`/sessions/${sessionId}`)}
-                    className="bg-purple-600 hover:bg-purple-700"
-                  >
-                    View Summary
-                  </Button>
                 </div>
               </div>
             )}
-
-            <div
-              className={`absolute inset-0 flex items-center justify-center bg-slate-900/50 ${isConnected && !isSessionEnded ? "hidden" : "flex"} ${isSessionEnded ? "hidden" : ""}`}
-            >
-              <p className="text-gray-500 flex items-center gap-2">
-                <VideoOff className="w-5 h-5" />
-                Waiting for extension stream...
-              </p>
-            </div>
-
-            {/* Webcam overlay */}
-            <div className="absolute top-4 right-4 w-48 h-32 bg-slate-800 rounded-lg border border-white/10 shadow-xl overflow-hidden z-50">
-              <img
-                id="webcam-feed"
-                className="w-full h-full object-cover transform scale-x-[-1]"
-                alt="Cam"
-              />
-              <div className="absolute inset-0 flex items-center justify-center text-gray-500 text-xs -z-10">
-                User Webcam
-              </div>
-            </div>
           </div>
 
           {/* Agent Insights Bar */}
@@ -312,9 +283,8 @@ export default function LiveSession({
                 </p>
                 <div className="mt-1 flex items-center gap-2">
                   <div
-                    className={`h-3 w-3 rounded-full ${
-                      emotion === "Neutral" ? "bg-blue-500" : "bg-orange-500"
-                    }`}
+                    className={`h-3 w-3 rounded-full ${emotion === "Neutral" ? "bg-blue-500" : "bg-orange-500"
+                      }`}
                   />
                   <span className="font-semibold text-lg">{emotion}</span>
                 </div>

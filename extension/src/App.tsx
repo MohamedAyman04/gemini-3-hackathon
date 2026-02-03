@@ -48,6 +48,7 @@ function App() {
     stream,
     checkPermissions,
     permissionError,
+    prepareStream,
   } = useMediaRecorder();
 
   const [selectedMissionId, setSelectedMissionId] = useState<string>("");
@@ -131,7 +132,7 @@ function App() {
 
     return () => {
       if (!isRecording && audioContextRef.current) {
-        audioContextRef.current.close().catch(() => {});
+        audioContextRef.current.close().catch(() => { });
         audioContextRef.current = null;
       }
     };
@@ -216,7 +217,16 @@ function App() {
         setIsCreating(false);
       }
 
-      // Create Session on Backend
+      // 1. Prepare Stream (MUST happen first during User Gesture for Screen Share)
+      try {
+        await prepareStream();
+      } catch (streamErr) {
+        console.error("Stream preparation failed:", streamErr);
+        // If they cancelled screen share, we stop.
+        return;
+      }
+
+      // 2. Create Session on Backend
       const response = await fetch(`${DASHBOARD_URL}/sessions`, {
         method: "POST",
         headers: {
@@ -232,7 +242,7 @@ function App() {
       const sessionData = await response.json();
       setCurrentSessionId(sessionData.id);
 
-      // Connect Socket
+      // 3. Connect Socket
       connectSocket(sessionData.id);
       setPendingSession(true);
     } catch (err: any) {
@@ -570,7 +580,7 @@ function App() {
             {/* Device Selection Dropdown or Permission Request */}
             <div className="relative flex-1">
               {devices.filter((d) => d.kind === "audioinput").length === 0 ||
-              permissionError ? (
+                permissionError ? (
                 <button
                   onClick={() => {
                     if (permissionError) {
@@ -703,11 +713,10 @@ function App() {
                 className={`flex ${msg.source === "ai" ? "justify-start" : "justify-end"}`}
               >
                 <div
-                  className={`max-w-[85%] text-xs p-2 rounded-lg ${
-                    msg.source === "ai"
+                  className={`max-w-[85%] text-xs p-2 rounded-lg ${msg.source === "ai"
                       ? "bg-purple-900/30 border border-purple-800/50 text-purple-200 rounded-tl-none"
                       : "bg-gray-800 border border-gray-700 text-gray-300 rounded-tr-none"
-                  }`}
+                    }`}
                 >
                   {msg.source === "ai" && (
                     <span className="block text-[10px] text-purple-400 font-bold mb-1">

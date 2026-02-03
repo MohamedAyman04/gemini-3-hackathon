@@ -19,8 +19,7 @@ import { Queue } from 'bullmq';
   },
 })
 export class SessionsGateway
-  implements OnGatewayConnection, OnGatewayDisconnect
-{
+  implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
 
@@ -30,7 +29,7 @@ export class SessionsGateway
     private readonly sessionsService: SessionsService,
     private readonly geminiService: GeminiService,
     @InjectQueue('analysis') private analysisQueue: Queue,
-  ) {}
+  ) { }
 
   handleConnection(client: Socket) {
     console.log(`Client connected: ${client.id}`);
