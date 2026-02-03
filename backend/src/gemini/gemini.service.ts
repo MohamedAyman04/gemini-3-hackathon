@@ -1,7 +1,6 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { GoogleGenAI } from '@google/genai';
-import WebSocket from 'ws';
+import * as types from '@google/genai';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -9,7 +8,8 @@ import * as path from 'path';
 export class GeminiService implements OnModuleInit {
   private readonly logger = new Logger(GeminiService.name);
   private apiKey: string | undefined;
-  private genAI: GoogleGenAI;
+  private genAI: types.GoogleGenAI;
+  private LIVE_MODEL = 'gemini-3-flash-preview';
 
   constructor(private configService: ConfigService) {
     this.apiKey = this.configService.get<string>('GEMINI_API_KEY');
@@ -24,7 +24,7 @@ export class GeminiService implements OnModuleInit {
       );
     }
 
-    this.genAI = new GoogleGenAI({
+    this.genAI = new types.GoogleGenAI({
       apiKey: this.apiKey,
     });
   }
@@ -231,121 +231,53 @@ export class GeminiService implements OnModuleInit {
     }
   }
 
-  createLiveSession(
+  async createLiveSession(
     sessionId: string,
-    onAudioDelta: (audio: string) => void,
+    onAudio: (audio: string) => void,
     onIntervention: (trigger: string) => void,
     onText: (text: string) => void,
     missionContext: { url?: string; context?: string } = {},
   ) {
     this.logger.log(`Creating Live Session for ${sessionId}`);
 
-    // ... (System prompt logic remains the same) ...
     const systemInstruction = `You are an AI assistant helping with: ${missionContext.context}`;
 
-    // Note: The Web-SDK version of @google/genai often provides a helper,
-    // but for Node.js backends, the WebSocket URL remains the most stable path:
-    const url = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key=${this.configService.get('GEMINI_API_KEY')}`;
-
-    const ws = new WebSocket(url);
-
-    ws.on('open', () => {
-      this.logger.log('Connected to Gemini Live WebSocket');
-      const setup_msg = {
-        setup: {
-          model: 'gemini-3-flash-preview',
-          systemInstruction: { parts: [{ text: systemInstruction }] },
-          generationConfig: {
-            responseModalities: ['audio'],
-            speechConfig: {
-              voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Puck' } },
-            },
-          },
+    // Using the SDK helper to match your Hono logic
+    const session = await this.genAI.live.connect({
+      model: this.LIVE_MODEL,
+      config: {
+        responseModalities: [types.Modality.AUDIO],
+        systemInstruction: { parts: [{ text: systemInstruction }] },
+        outputAudioTranscription: {},
+        speechConfig: {
+          voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Zephyr' } },
         },
-      };
-      this.logger.debug('Sending Setup Message to Gemini');
-      ws.send(JSON.stringify(setup_msg));
-    });
-
-    ws.on('error', (err) => {
-      this.logger.error('Gemini WebSocket Error:', err);
-    });
-
-    ws.on('close', (code, reason) => {
-      this.logger.warn(`Gemini WebSocket Closed: ${code} - ${reason}`);
-    });
-
-    ws.on('message', (data) => {
-      try {
-        const strData = data.toString();
-        // this.logger.debug(`Received raw message from Gemini: ${strData.slice(0, 100)}...`);
-        const response = JSON.parse(strData);
-
-        const audio = response.serverContent?.modelTurn?.parts?.[0]?.inlineData?.data;
-        if (audio) {
-          this.logger.debug(`Received Audio Delta from Gemini (${audio.length} bytes)`);
-          onAudioDelta(audio);
-        }
-
-        const text = response.serverContent?.modelTurn?.parts?.[0]?.text;
-        if (text) {
-          this.logger.log(`Received Text from Gemini: "${text}"`);
-          if (text.includes('REPORT_BUG')) {
-            onIntervention('REPORT_BUG');
-          } else {
-            onText(text);
+        tools: [{ googleSearch: {} }],
+      },
+      callbacks: {
+        onmessage: (message: types.LiveServerMessage) => {
+          // Handle Transcription -> onText
+          if (message.serverContent?.outputTranscription) {
+            onText(message.serverContent.outputTranscription.text || '');
           }
-        }
 
-        if (!audio && !text) {
-          this.logger.debug("Received non-content message from Gemini (likely turnComplete or empty)");
-        }
-
-      } catch (e) {
-        this.logger.error("Error parsing Gemini message", e);
-      }
+          // Handle Audio -> onAudio
+          const parts = message.serverContent?.modelTurn?.parts;
+          if (parts) {
+            parts.forEach((part) => {
+              if (part.inlineData?.data) {
+                onAudio(part.inlineData.data);
+              }
+              // Handle specific triggers -> onIntervention
+              if (part.text && part.text.includes('REPORT_BUG')) {
+                onIntervention('REPORT_BUG');
+              }
+            });
+          }
+        },
+      },
     });
 
-    return {
-      sendAudio: (chunk: Buffer) => {
-        if (ws.readyState === WebSocket.OPEN) {
-          // this.logger.debug(`Sending Audio Chunk to Gemini (${chunk.length} bytes)`);
-          ws.send(
-            JSON.stringify({
-              realtimeInput: {
-                mediaChunks: [
-                  {
-                    mimeType: 'audio/pcm;rate=16000',
-                    data: chunk.toString('base64'),
-                  },
-                ],
-              },
-            }),
-          );
-        } else {
-          this.logger.warn("Attempted to send audio but Gemini socket is NOT OPEN");
-        }
-      },
-      sendImage: (chunk: Buffer) => {
-        if (ws.readyState === WebSocket.OPEN) {
-          this.logger.debug(`Sending Image Frame to Gemini (${chunk.length} bytes)`);
-          ws.send(
-            JSON.stringify({
-              realtimeInput: {
-                mediaChunks: [
-                  {
-                    mimeType: 'image/jpeg',
-                    data: chunk.toString('base64'),
-                  },
-                ],
-              },
-            }),
-          );
-        } else {
-          this.logger.warn("Attempted to send image but Gemini socket is NOT OPEN");
-        }
-      },
-      close: () => ws.close(),
-    };
+    return session;
   }
 }
