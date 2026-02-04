@@ -90,7 +90,7 @@ export class SessionsService {
 
   async appendTranscript(sessionId: string, text: string) {
     const session = await this.findOne(sessionId);
-    const updatedTranscript = (session?.transcript || '') + '\n' + text;
+    const updatedTranscript = (session?.transcript || '') + text;
     return this.update(sessionId, { transcript: updatedTranscript });
   }
 

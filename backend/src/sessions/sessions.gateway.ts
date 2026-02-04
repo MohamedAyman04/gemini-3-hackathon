@@ -133,10 +133,28 @@ export class SessionsGateway
             .emit('ai_intervention', { type: trigger });
         }
       },
-      (text) => {
-        this.sessionsService.appendTranscript(data.sessionId, text);
-        // AI sent a text reply
-        this.server.to(data.sessionId).emit('ai_text', { text });
+      (text, source) => {
+        const session = this.activeSessions.get(data.sessionId);
+        let contentToAppend = text;
+
+        // Handle Turn Switching
+        if (session && session.lastSpeaker !== source) {
+          contentToAppend = `\n\n${source}: ${text}`;
+          session.lastSpeaker = source;
+        } else {
+          // Continuity: Add a space if the new chunk doesn't start with punctuation/space
+          // This is a naive heuristic but helps with "today?Noted." -> "today? Noted."
+          if (text && text.length > 0 && !/^\s/.test(text) && !/^[.,?!]/.test(text)) {
+            contentToAppend = ' ' + text;
+          }
+        }
+
+        this.sessionsService.appendTranscript(data.sessionId, contentToAppend);
+
+        // AI sent a text reply - emit to UI
+        if (source === 'AI') {
+          this.server.to(data.sessionId).emit('ai_text', { text });
+        }
       },
       {
         url: mission?.url,

@@ -1,5 +1,7 @@
 "use client";
 
+import ReactMarkdown from "react-markdown";
+
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { getSession, getMe } from "@/lib/api";
@@ -111,9 +113,7 @@ export default function SessionDetails() {
             <CardContent>
               <div className="prose prose-invert prose-sm max-w-none">
                 {session.analysis?.summary ? (
-                  <p className="whitespace-pre-wrap">
-                    {session.analysis.summary}
-                  </p>
+                  <ReactMarkdown>{session.analysis.summary}</ReactMarkdown>
                 ) : (
                   <p className="text-gray-500 italic">
                     No summary available yet.

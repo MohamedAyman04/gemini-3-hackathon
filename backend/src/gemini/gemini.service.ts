@@ -197,7 +197,7 @@ export class GeminiService implements OnModuleInit {
         Analyze the following session data and provide a concise summary of the user's experience.
         Focus on:
         1. Key actions performed.
-        2. any frustrations or bugs encountered.
+        2. A verified list of any frustrations or bugs encountered (use bullet points).
         3. Overall sentiment.
 
         TRANSCRIPT:
@@ -236,12 +236,22 @@ export class GeminiService implements OnModuleInit {
     sessionId: string,
     onAudio: (audio: string) => void,
     onIntervention: (trigger: string) => void,
-    onText: (text: string) => void,
+    onText: (text: string, source: string) => void,
     missionContext: { url?: string; context?: string } = {},
   ) {
     this.logger.log(`Creating Live Session for ${sessionId}`);
 
-    const systemInstruction = `You are an AI assistant helping with: ${missionContext.context}`;
+    const systemInstruction = `
+    You are an AI assistant helping with: ${missionContext.context}
+    
+    GUIDELINES:
+    - Be concise with all your replies.
+    - The user is a software tester and will report any bugs or hurdles to you. 
+    - You must confirm with a short reply that you have taken note of the bug/hurdle so it is recorded in your transcript.
+    - The format of the reply should contain the current page, the element the user is frustrated with and the reason concisely.
+    - DO NOT use markdown formatting (like **bold** or *italics*) in your response. Output plain text only.
+    - You are listening to the tester and viewing their screen as they test.
+    `.trim();
 
     // Using the SDK helper to match your Hono logic
     const session = await this.genAI.live.connect({
@@ -250,6 +260,7 @@ export class GeminiService implements OnModuleInit {
         responseModalities: [types.Modality.AUDIO],
         systemInstruction: { parts: [{ text: systemInstruction }] },
         outputAudioTranscription: {},
+        inputAudioTranscription: {},
         speechConfig: {
           voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Zephyr' } },
         },
@@ -272,9 +283,19 @@ export class GeminiService implements OnModuleInit {
             onIntervention('INTERRUPTED');
           }
 
-          // Handle Transcription -> onText
+          // Handle AI Output Transcription
           if (message.serverContent?.outputTranscription) {
-            onText(message.serverContent.outputTranscription.text || '');
+            onText(message.serverContent.outputTranscription.text || '', 'AI');
+          }
+
+          // Handle User Input Transcription
+          // Docs say: turn.serverContent.inputTranscription
+          const anyContent = message.serverContent as any;
+          if (anyContent?.inputTranscription) {
+            const text = anyContent.inputTranscription.text;
+            if (text) {
+              onText(text, 'USER');
+            }
           }
 
           // Handle Audio -> onAudio
