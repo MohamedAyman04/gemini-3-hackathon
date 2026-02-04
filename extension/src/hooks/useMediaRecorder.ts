@@ -370,7 +370,7 @@ export const useMediaRecorder = (): UseMediaRecorderReturn => {
 
                     // AMPLIFY VOLUME (10x Gain) because input was extremely quiet (0.003 avg)
                     for (let i = 0; i < inputData.length; i++) {
-                        inputData[i] *= 10.0;
+                        inputData[i] *= 2.0;
                     }
 
                     // Simple silence detection for debugging

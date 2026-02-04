@@ -12,7 +12,7 @@ export class SessionsService {
     @InjectRepository(Session)
     private sessionsRepository: Repository<Session>,
     private geminiService: GeminiService,
-  ) {}
+  ) { }
 
   create(createSessionDto: CreateSessionDto) {
     const session = this.sessionsRepository.create(createSessionDto);
@@ -63,7 +63,10 @@ export class SessionsService {
       // For now we don't have a separate transcript field, assuming logs might contain it or we just use logs
       // In a real scenario, we'd capture the transcript from the live session and store it.
       // Since we don't have transcript storage yet, we'll pass empty string or extract from logs if possible.
-      const summary = await this.geminiService.generateSessionSummary('', logs);
+      const summary = await this.geminiService.generateSessionSummary(
+        session.transcript || '',
+        logs,
+      );
       session.analysis = { summary };
     } catch (e) {
       console.error('Failed to generate summary', e);

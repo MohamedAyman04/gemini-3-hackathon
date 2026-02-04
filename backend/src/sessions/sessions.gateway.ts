@@ -295,4 +295,8 @@ export class SessionsGateway
 
     return { status: 'queued' };
   }
+
+  notifySessionEnded(sessionId: string, sessionData: any) {
+    this.server.to(sessionId).emit('session_ended', sessionData);
+  }
 }

@@ -13,6 +13,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { SessionsService } from './sessions.service';
+import { SessionsGateway } from './sessions.gateway';
 import { CreateSessionDto } from './dto/create-session.dto';
 import { UpdateSessionDto } from './dto/update-session.dto';
 import { AuthGuard } from '../auth/auth.guard';
@@ -20,7 +21,10 @@ import { AuthGuard } from '../auth/auth.guard';
 @UseGuards(AuthGuard)
 @Controller('sessions')
 export class SessionsController {
-  constructor(private readonly sessionsService: SessionsService) {}
+  constructor(
+    private readonly sessionsService: SessionsService,
+    private readonly sessionsGateway: SessionsGateway,
+  ) { }
 
   @Post()
   create(@Body() createSessionDto: CreateSessionDto) {
@@ -48,13 +52,19 @@ export class SessionsController {
 
   @Post(':id/finalize')
   @UseInterceptors(FileInterceptor('video'))
-  finalize(
+  async finalize(
     @Param('id') id: string,
     @UploadedFile() file: Express.Multer.File,
     @Body('logs') logs: string, // Received as stringified JSON
   ) {
     const parsedLogs = logs ? JSON.parse(logs) : [];
-    return this.sessionsService.finalize(id, file, parsedLogs);
+    const updatedSession = await this.sessionsService.finalize(
+      id,
+      file,
+      parsedLogs,
+    );
+    this.sessionsGateway.notifySessionEnded(id, updatedSession);
+    return updatedSession;
   }
 
   @Delete(':id')
