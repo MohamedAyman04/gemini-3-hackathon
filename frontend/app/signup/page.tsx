@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Activity, UserPlus, Mail, Lock, User } from "lucide-react";
+import { Activity, UserPlus, Mail, Lock, User, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import {
@@ -14,6 +14,7 @@ import {
   CardTitle,
 } from "@/components/ui/Card";
 import Link from "next/link";
+import Image from "next/image";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
@@ -58,100 +59,128 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-[#020617]">
-      <div className="w-full max-w-md space-y-8">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-background relative overflow-hidden">
+      {/* Decorative Elements */}
+      <div className="absolute top-0 left-0 w-full h-full pointer-events-none opacity-20">
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/30 rounded-full blur-[100px]" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-secondary/30 rounded-full blur-[100px]" />
+      </div>
+
+      <div className="w-full max-w-md space-y-8 relative z-10">
+        <Link
+          href="/"
+          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors group"
+        >
+          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+          Back to Home
+        </Link>
+
         <div className="flex flex-col items-center text-center">
-          <div className="p-3 rounded-2xl bg-violet-600/20 text-violet-500 mb-4">
-            <Activity className="w-10 h-10" />
-          </div>
-          <h1 className="text-4xl font-bold tracking-tight text-white mb-2">
-            VibeCheck
+          {/* <div className="p-4 rounded-3xl bg-primary/10 mb-6 shadow-2xl shadow-primary/10 ring-1 ring-primary/20"> */}
+          <Image src="/vibecheck.svg" alt="VibeCheck" width={48} height={48} />
+          {/* </div> */}
+          <h1 className="text-4xl font-black tracking-tight text-foreground mb-3">
+            Join VibeCheck
           </h1>
-          <p className="text-gray-400">
-            Create your account to start autonomous testing
+          <p className="text-muted-foreground max-w-[320px]">
+            Start your journey with autonomous AI QA agents today.
           </p>
         </div>
 
-        <Card className="border-white/5 bg-slate-900/40 backdrop-blur-xl">
+        <Card className="border-border bg-card/50 backdrop-blur-2xl shadow-2xl">
           <CardHeader>
-            <CardTitle>Create Account</CardTitle>
+            <CardTitle className="text-xl text-midnight">
+              Create Account
+            </CardTitle>
             <CardDescription>
-              Sign up to access the VibeCheck platform
+              Fill in your details to get started.
             </CardDescription>
           </CardHeader>
           <form onSubmit={handleSignup}>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-300">
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">
                   Full Name
                 </label>
                 <Input
                   type="text"
                   placeholder="John Doe"
                   value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                    setName(e.target.value)
+                  }
                   icon={<User className="w-4 h-4" />}
                   required
+                  className="bg-background border-border"
                 />
               </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-300">
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">
                   Email Address
                 </label>
                 <Input
                   type="email"
                   placeholder="name@example.com"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                    setEmail(e.target.value)
+                  }
                   icon={<Mail className="w-4 h-4" />}
                   required
+                  className="bg-background border-border"
                 />
               </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-300">
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">
                   Password
                 </label>
                 <Input
                   type="password"
                   placeholder="••••••••"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                    setPassword(e.target.value)
+                  }
                   icon={<Lock className="w-4 h-4" />}
                   required
+                  className="bg-background border-border"
                 />
               </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-300">
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">
                   Confirm Password
                 </label>
                 <Input
                   type="password"
                   placeholder="••••••••"
                   value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                    setConfirmPassword(e.target.value)
+                  }
                   icon={<Lock className="w-4 h-4" />}
                   required
+                  className="bg-background border-border"
                 />
               </div>
             </CardContent>
-            <CardFooter className="pt-4 pb-6 flex-col gap-4">
+            <CardFooter className="pt-2 pb-8 flex-col gap-4">
               <Button
                 type="submit"
-                className="w-full bg-violet-600 hover:bg-violet-700 text-white"
+                className="w-full h-12 text-lg font-bold bg-primary hover:bg-lp-600 shadow-xl shadow-primary/20 rounded-xl"
                 isLoading={isLoading}
               >
-                <UserPlus className="mr-2 w-4 h-4" />
+                {!isLoading && <UserPlus className="mr-2 w-5 h-5" />}
                 Create Account
               </Button>
             </CardFooter>
           </form>
         </Card>
 
-        <p className="text-center text-sm text-gray-500">
+        <p className="text-center text-sm text-muted-foreground font-medium">
           Already have an account?{" "}
           <Link
             href="/login"
-            className="text-violet-400 hover:text-violet-300 font-medium"
+            className="text-primary hover:text-lp-400 transition-colors font-bold"
           >
             Sign in
           </Link>

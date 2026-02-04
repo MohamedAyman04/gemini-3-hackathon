@@ -58,6 +58,16 @@ export async function getSession(id: string) {
   return response.json();
 }
 
+export async function getSessions() {
+  const response = await fetch(`${API_BASE_URL}/sessions`, {
+    credentials: "include",
+  });
+  if (!response.ok) {
+    throw new Error("Failed to fetch sessions");
+  }
+  return response.json();
+}
+
 export async function getMe() {
   const response = await fetch(`${API_BASE_URL}/auth/me`, {
     credentials: "include",

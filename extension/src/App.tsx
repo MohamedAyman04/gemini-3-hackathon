@@ -20,7 +20,7 @@ const DASHBOARD_URL =
 
 function App() {
   const { missions, isLoading: missionsLoading, createMission } = useMissions();
-  const { isAuthenticated, isLoading, user, login, debugLogin } = useAuth();
+  const { isAuthenticated, isLoading, login, debugLogin } = useAuth();
   const {
     socket,
     isConnected: isSocketConnected,
@@ -90,11 +90,13 @@ function App() {
 
     const processQueue = async () => {
       // 1. Check if AudioContext is ready/resumed
-      if (audioContextRef.current?.state === 'suspended') {
+      if (audioContextRef.current?.state === "suspended") {
         try {
           await audioContextRef.current.resume();
           console.log("Resumed AudioContext");
-        } catch (e) { /* ignore */ }
+        } catch (e) {
+          /* ignore */
+        }
       }
 
       // 2. Consume Audio
@@ -158,14 +160,14 @@ function App() {
   useEffect(() => {
     return () => {
       if (audioContextRef.current) audioContextRef.current.close();
-    }
+    };
   }, []);
 
   // Watch for "ai_interrupted" via socket side-effect (or just check queue clear)
   // useSocket clears queue internaly. We just need to stop CURRENTLY playing audio?
   // Web Audio API text scheduling is hard to stop individually without disconnecting nodes.
-  // For simplicity, we just clear the queue for *future* chunks. 
-  // If we wanted to stop immediate sound, we'd need to track active nodes. 
+  // For simplicity, we just clear the queue for *future* chunks.
+  // If we wanted to stop immediate sound, we'd need to track active nodes.
   // Let's stick to queue clearing for now as per plan.
 
   const [pendingSession, setPendingSession] = useState(false);
@@ -229,7 +231,7 @@ function App() {
       if (!audioContextRef.current) {
         audioContextRef.current = new AudioContext({ sampleRate: 24000 });
       }
-      if (audioContextRef.current.state === 'suspended') {
+      if (audioContextRef.current.state === "suspended") {
         await audioContextRef.current.resume();
       }
 
@@ -399,22 +401,28 @@ function App() {
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-gray-900 text-white p-6 flex flex-col items-center justify-center text-center gap-6">
-        <div className="flex items-center gap-2 mb-4">
-          <Activity className="text-purple-500 w-10 h-10" />
-          <h1 className="text-2xl font-bold tracking-tight">VibeCheck</h1>
+      <div className="min-h-screen bg-linen text-midnight p-8 flex flex-col items-center justify-center text-center gap-8">
+        <div className="flex flex-col items-center gap-4 mb-4">
+          <img
+            src="/vibecheck.svg"
+            alt="VibeCheck"
+            className="w-20 h-20 animate-glow rounded-[32px] p-4 bg-white shadow-2xl border border-midnight/5"
+          />
+          <h1 className="text-4xl font-black tracking-tight text-midnight uppercase">
+            VibeCheck
+          </h1>
         </div>
 
-        <p className="text-gray-400 max-w-xs">
+        <p className="text-muted-foreground max-w-xs font-medium">
           Connect your account to start an autonomous testing session.
         </p>
 
         <button
           onClick={login}
-          className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg font-medium transition-colors w-full justify-center max-w-xs"
+          className="flex items-center gap-2 bg-lavender hover:opacity-90 text-white px-8 py-5 rounded-2xl font-black uppercase tracking-widest transition-all w-full justify-center max-w-xs shadow-2xl shadow-lavender/40"
         >
           <LogIn className="w-5 h-5" />
-          Sign in with Dashboard
+          Sign in
         </button>
 
         {/* Dev Mode Bypass */}
@@ -433,20 +441,15 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white p-4 font-sans flex flex-col gap-6">
+    <div className="min-h-screen bg-linen text-midnight font-sans flex flex-col gap-8 p-6">
       {/* Header */}
-      <header className="flex items-center justify-between border-b border-gray-800 pb-4">
-        <div className="flex items-center gap-3">
-          <Activity className="text-purple-500 w-6 h-6" />
+      <header className="flex items-center justify-between border-b border-midnight/5 pb-6">
+        <div className="flex items-center gap-4">
+          <img src="/vibecheck.svg" alt="Logo" className="w-10 h-10" />
           <div className="flex flex-col">
-            <h1 className="text-lg font-bold tracking-tight leading-none">
+            <h1 className="text-lg font-black tracking-tight leading-none uppercase text-midnight">
               VibeCheck
             </h1>
-            {user && (
-              <span className="text-[10px] text-gray-400">
-                Hi, {user.name.split(" ")[0]}
-              </span>
-            )}
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -528,12 +531,12 @@ function App() {
             {/* Connection Ring */}
             <div className="relative group">
               <div
-                className={`absolute -inset-1 rounded-full blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200 ${isRecording ? "bg-gradient-to-r from-purple-600 to-blue-600" : "bg-gray-700"}`}
+                className={`absolute -inset-1 rounded-full blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200 ${isRecording ? "bg-gradient-to-r from-red-600 to-orange-600" : "bg-lavender"}`}
               ></div>
               <button
                 onClick={toggleConnection}
                 disabled={isEnding}
-                className={`relative w-40 h-40 rounded-full flex flex-col items-center justify-center bg-gray-900 border-4 transition-all duration-300 shadow-2xl ${isRecording ? "border-red-500 shadow-red-500/20" : "border-purple-500 hover:border-purple-400"}`}
+                className={`relative w-44 h-44 rounded-full flex flex-col items-center justify-center bg-white border-[6px] transition-all duration-300 shadow-2xl ${isRecording ? "border-red-500 shadow-red-500/20" : "border-lavender hover:border-periwinkle"}`}
               >
                 {isEnding ? (
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
@@ -564,11 +567,16 @@ function App() {
             <div className="w-full h-16 bg-gray-800/50 rounded-lg flex items-end justify-center gap-1 overflow-hidden border border-gray-800/50 p-2">
               {error && (
                 <div className="flex flex-col items-center gap-2 w-full">
-                  <div className="text-red-500 text-xs text-center">{error}</div>
+                  <div className="text-red-500 text-xs text-center">
+                    {error}
+                  </div>
                   {error.includes("denied") && (
                     <button
                       onClick={() =>
-                        window.open(chrome.runtime.getURL("popup.html"), "_blank")
+                        window.open(
+                          chrome.runtime.getURL("popup.html"),
+                          "_blank",
+                        )
                       }
                       className="text-xs bg-gray-800 hover:bg-gray-700 text-white px-3 py-1 rounded border border-gray-600 transition-colors"
                     >
@@ -585,7 +593,7 @@ function App() {
                   return (
                     <div
                       key={i}
-                      className="w-1 bg-purple-500 rounded-t-sm transition-all duration-75"
+                      className="w-1 bg-lavender rounded-t-sm transition-all duration-75"
                       style={{
                         height: `${height}%`,
                         opacity: 0.5 + value / 510,
@@ -630,8 +638,8 @@ function App() {
                     </div>
                   ) : (
                     <div className="flex items-center gap-2 w-full">
-                      <div className="p-3 bg-gray-800 text-gray-400 border border-gray-700 rounded-lg">
-                        <Target className="w-5 h-5" />
+                      <div className="p-3 bg-white text-midnight/40 border border-midnight/5 rounded-2xl shadow-sm">
+                        <Target className="w-6 h-6" />
                       </div>
                       <div className="relative flex-1">
                         <select
@@ -641,7 +649,7 @@ function App() {
                             else setSelectedMissionId(e.target.value);
                           }}
                           disabled={missionsLoading}
-                          className="w-full bg-gray-800 text-xs text-gray-300 rounded-lg border border-gray-700 px-3 py-3 focus:outline-none focus:border-purple-500 appearance-none truncate disabled:opacity-50"
+                          className="w-full bg-white text-sm text-midnight rounded-2xl border border-midnight/5 px-4 py-4 focus:outline-none focus:border-lavender appearance-none truncate disabled:opacity-50 font-bold shadow-sm"
                         >
                           <option value="">Select a Mission...</option>
                           <option value="NEW">+ Create New Mission</option>
@@ -672,8 +680,8 @@ function App() {
 
                 {/* Device Selection Dropdown or Permission Request */}
                 <div className="relative flex-1">
-                  {devices.filter((d) => d.kind === "audioinput").length === 0 ||
-                    permissionError ? (
+                  {devices.filter((d) => d.kind === "audioinput").length ===
+                    0 || permissionError ? (
                     <button
                       onClick={() => {
                         if (permissionError) {
@@ -706,7 +714,10 @@ function App() {
                         {devices
                           .filter((d) => d.kind === "audioinput")
                           .map((device) => (
-                            <option key={device.deviceId} value={device.deviceId}>
+                            <option
+                              key={device.deviceId}
+                              value={device.deviceId}
+                            >
                               {device.label ||
                                 `Microphone ${device.deviceId.slice(0, 5)}...`}
                             </option>
@@ -787,10 +798,10 @@ function App() {
       </main>
 
       {/* Live Chat / Events */}
-      <section className="bg-gray-800/30 rounded-xl p-4 border border-gray-800 h-48 flex flex-col">
-        <div className="flex items-center gap-2 mb-3 text-gray-400 border-b border-gray-700/50 pb-2">
-          <Activity className="w-4 h-4" />
-          <h3 className="text-xs font-bold uppercase tracking-wider">
+      <section className="bg-white rounded-[40px] p-6 border border-midnight/5 h-64 flex flex-col shadow-xl">
+        <div className="flex items-center gap-3 mb-4 text-midnight border-b border-midnight/5 pb-4">
+          <Activity className="w-5 h-5 text-lavender" />
+          <h3 className="text-[10px] font-black uppercase tracking-[0.3em]">
             Live Interaction
           </h3>
         </div>
@@ -808,10 +819,11 @@ function App() {
                 className={`flex ${msg.source === "ai" ? "justify-start" : "justify-end"}`}
               >
                 <div
-                  className={`max-w-[85%] text-xs p-2 rounded-lg ${msg.source === "ai"
-                    ? "bg-purple-900/30 border border-purple-800/50 text-purple-200 rounded-tl-none"
-                    : "bg-gray-800 border border-gray-700 text-gray-300 rounded-tr-none"
-                    }`}
+                  className={`max-w-[85%] text-xs p-2 rounded-lg ${
+                    msg.source === "ai"
+                      ? "bg-purple-900/30 border border-purple-800/50 text-purple-200 rounded-tl-none"
+                      : "bg-gray-800 border border-gray-700 text-gray-300 rounded-tr-none"
+                  }`}
                 >
                   {msg.source === "ai" && (
                     <span className="block text-[10px] text-purple-400 font-bold mb-1">
@@ -824,8 +836,8 @@ function App() {
             ))
           )}
         </div>
-      </section >
-    </div >
+      </section>
+    </div>
   );
 }
 export default App;

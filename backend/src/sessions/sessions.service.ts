@@ -12,7 +12,7 @@ export class SessionsService {
     @InjectRepository(Session)
     private sessionsRepository: Repository<Session>,
     private geminiService: GeminiService,
-  ) { }
+  ) {}
 
   create(createSessionDto: CreateSessionDto) {
     const session = this.sessionsRepository.create(createSessionDto);
@@ -20,7 +20,10 @@ export class SessionsService {
   }
 
   findAll() {
-    return this.sessionsRepository.find();
+    return this.sessionsRepository.find({
+      relations: ['mission'],
+      order: { createdAt: 'DESC' },
+    });
   }
 
   findOne(id: string) {

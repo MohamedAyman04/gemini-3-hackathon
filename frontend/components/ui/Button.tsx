@@ -23,21 +23,21 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       disabled,
       ...props
     },
-    ref
+    ref,
   ) => {
     const baseStyles =
       "inline-flex items-center justify-center rounded-xl font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]";
 
     const variants = {
       primary:
-        "bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white shadow-lg shadow-violet-500/25 border border-transparent",
+        "bg-primary hover:opacity-90 text-primary-foreground shadow-lg shadow-primary/20 border border-transparent",
       secondary:
-        "bg-pink-600 hover:bg-pink-500 text-white shadow-lg shadow-pink-500/25",
+        "bg-secondary hover:opacity-90 text-secondary-foreground shadow-lg shadow-secondary/20",
       outline:
-        "bg-transparent border border-gray-700 text-gray-200 hover:bg-gray-800/50 hover:border-gray-500",
-      ghost: "bg-transparent text-gray-400 hover:text-white hover:bg-white/5",
-      danger:
-        "bg-red-500/10 text-red-400 border border-red-500/50 hover:bg-red-500/20",
+        "bg-transparent border border-border text-foreground hover:bg-muted",
+      ghost:
+        "bg-transparent text-muted-foreground hover:text-foreground hover:bg-muted",
+      danger: "bg-destructive text-destructive-foreground hover:opacity-90",
     };
 
     const sizes = {
@@ -59,7 +59,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         {children}
       </button>
     );
-  }
+  },
 );
 
 Button.displayName = "Button";

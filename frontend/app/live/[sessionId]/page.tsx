@@ -14,9 +14,16 @@ import {
   MessageSquare,
   Terminal,
   Activity,
+  Globe,
+  Clock,
+  Shield,
+  ArrowLeft,
+  Zap,
 } from "lucide-react";
 import { io, Socket } from "socket.io-client";
 import "rrweb-player/dist/style.css";
+import { Sidebar } from "@/components/layout/Sidebar";
+import Image from "next/image";
 
 export default function LiveSession({
   params,
@@ -45,9 +52,11 @@ export default function LiveSession({
   const audioContextRef = useRef<AudioContext | null>(null);
   const nextStartTimeRef = useRef<number>(0);
 
-  // Fetch session details for start time / metadata
+  // Fetch session details
   useEffect(() => {
-    fetch(`http://localhost:5000/sessions/${sessionId}`)
+    fetch(
+      `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/sessions/${sessionId}`,
+    )
       .then((res) => res.json())
       .then((data) => {
         setSessionData(data);
@@ -59,24 +68,24 @@ export default function LiveSession({
   }, [sessionId]);
 
   useEffect(() => {
-    // Connect to backend
-    const socket = io("http://localhost:5000");
+    const socket = io(
+      process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000",
+    );
     socketRef.current = socket;
 
     socket.on("connect", () => {
       setIsConnected(true);
-      addLog("Connected to backend server", "SYSTEM");
-      // Join as viewer
+      addLog("Direct link established", "SYSTEM");
       socket.emit("join_session", { sessionId: sessionId, type: "viewer" });
     });
 
     socket.on("session_started", () => {
-      addLog("Session started by host", "SYSTEM");
+      addLog("AI Agent initialized mission", "SYSTEM");
     });
 
     socket.on("session_ended", (data: { reason: string }) => {
       setIsSessionEnded(true);
-      addLog(`Session Ended: ${data.reason}`, "SYSTEM");
+      addLog(`Mission Terminated: ${data.reason}`, "SYSTEM");
       if (playerRef.current) playerRef.current.pause();
     });
 
@@ -84,14 +93,12 @@ export default function LiveSession({
       addLog(data.text, "AI");
     });
 
-    // Handle Audio Playback (User & AI)
     const playAudioChunk = (base64Audio: string, rate: number = 16000) => {
       try {
         if (!audioContextRef.current) {
           audioContextRef.current = new AudioContext({ sampleRate: rate });
         }
-        // Ensure running
-        if (audioContextRef.current.state === 'suspended') {
+        if (audioContextRef.current.state === "suspended") {
           audioContextRef.current.resume();
         }
 
@@ -122,76 +129,37 @@ export default function LiveSession({
 
         source.start(startTime);
         nextStartTimeRef.current = startTime + audioBuffer.duration;
-
       } catch (e) {
         console.error("Error playing audio chunk", e);
       }
     };
 
-    // Listen for User Audio (16kHz)
     socket.on("user_audio", (chunk: ArrayBuffer) => {
-      const base64 = btoa(new Uint8Array(chunk).reduce((data, byte) => data + String.fromCharCode(byte), ''));
+      const base64 = btoa(
+        new Uint8Array(chunk).reduce(
+          (data, byte) => data + String.fromCharCode(byte),
+          "",
+        ),
+      );
       playAudioChunk(base64, 16000);
     });
 
-    // Listen for AI Audio (24kHz)
     socket.on("ai_audio", (data: { audio: string }) => {
       playAudioChunk(data.audio, 24000);
     });
 
     socket.on("ai_intervention", (data) => {
-      addLog(`Intervention Triggered: ${data.type}`, "SYSTEM");
-      setFrictionScore((prev) => Math.min(100, prev + 10));
+      addLog(`Intervention: ${data.type}`, "SYSTEM");
+      setFrictionScore((prev) => Math.min(100, prev + 15));
       setEmotion("Frustrated");
     });
 
-    let lastFrameLog = 0;
     socket.on("screen_frame", (data: { frame: string }) => {
-      const img = document.getElementById("live-stream-feed") as HTMLImageElement;
+      const img = document.getElementById(
+        "live-stream-feed",
+      ) as HTMLImageElement;
       if (img) {
         img.src = `data:image/jpeg;base64,${data.frame}`;
-      }
-
-      const now = Date.now();
-      if (now - lastFrameLog > 5000) {
-        addLog("Received active webcam stream", "SYSTEM");
-        lastFrameLog = now;
-      }
-    });
-
-    let lastEventLog = 0;
-    socket.on("rrweb_events", async (events: any[]) => {
-      const now = Date.now();
-      if (now - lastEventLog > 2000) {
-        addLog(`Received ${events.length} UI activity events`, "USER");
-        lastEventLog = now;
-      }
-
-      if (playerRef.current) {
-        events.forEach((event) => {
-          playerRef.current.addEvent(event);
-        });
-      } else {
-        if (events.length > 0) {
-          addLog("Initializing UI replay player...", "SYSTEM");
-          const { default: rrwebPlayer } = await import("rrweb-player");
-
-          if (containerRef.current && !playerRef.current) {
-            containerRef.current.innerHTML = "";
-            playerRef.current = new rrwebPlayer({
-              target: containerRef.current,
-              props: {
-                events: events,
-                liveMode: true,
-                autoPlay: true,
-                width: containerRef.current.clientWidth,
-                height: containerRef.current.clientHeight,
-              },
-            });
-
-            addLog("UI Replay Player Ready", "SYSTEM");
-          }
-        }
       }
     });
 
@@ -201,10 +169,6 @@ export default function LiveSession({
 
     return () => {
       socket.disconnect();
-      if (playerRef.current) {
-        playerRef.current.pause();
-        playerRef.current = null;
-      }
     };
   }, [sessionId]);
 
@@ -218,28 +182,20 @@ export default function LiveSession({
           source,
         },
       ].slice(-50),
-    ); // Keep last 50
-  };
-
-  const handleTriggerAI = async () => {
-    // Legacy test trigger - keeping for dev but could remove
-    alert("This feature is for dev testing only.");
+    );
   };
 
   const handleEndSession = () => {
-    router.push("/");
+    router.push("/live");
   };
 
-  // Calculate elapsed time
   const [elapsed, setElapsed] = useState("00:00:00");
   useEffect(() => {
     if (!sessionData?.createdAt) return;
-
     const interval = setInterval(() => {
       const start = new Date(sessionData.createdAt).getTime();
       const now = new Date().getTime();
       const diff = Math.floor((now - start) / 1000);
-
       const h = Math.floor(diff / 3600)
         .toString()
         .padStart(2, "0");
@@ -249,167 +205,248 @@ export default function LiveSession({
       const s = (diff % 60).toString().padStart(2, "0");
       setElapsed(`${h}:${m}:${s}`);
     }, 1000);
-
     return () => clearInterval(interval);
   }, [sessionData]);
 
   return (
-    <div className="h-[calc(100vh-8rem)] flex flex-col gap-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-3">
-            <span className="relative flex h-3 w-3">
-              <span
-                className={`absolute inline-flex h-full w-full rounded-full opacity-75 ${isConnected ? "animate-ping bg-red-400" : "bg-gray-400"}`}
-              ></span>
-              <span
-                className={`relative inline-flex rounded-full h-3 w-3 ${isConnected ? "bg-red-500" : "bg-gray-500"}`}
-              ></span>
-            </span>
-            Live Session: {sessionData?.mission?.name || "Loading..."}
-          </h1>
-          <div className="flex items-center gap-4 mt-1">
-            <p className="text-gray-400 text-sm">
-              Session ID: #{sessionId.slice(0, 8)}... • {elapsed} elapsed
-            </p>
-            <Badge
-              variant={isConnected ? "success" : "secondary"}
-              className="text-[10px] py-0"
-            >
-              {isConnected ? "WEBSOCKET LIVE" : "CONNECTING..."}
-            </Badge>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleEndSession}
-            className="border-red-500/50 text-red-500 hover:bg-red-500/10"
-          >
-            <Square className="w-4 h-4 mr-2 text-red-500" /> Exit View
-          </Button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 flex-1 min-h-0">
-        {/* Main Screen Stream */}
-        <div className="lg:col-span-3 flex flex-col gap-4">
-          <div className="relative flex-1 rounded-2xl bg-black border border-white/10 overflow-hidden group">
-            {/* Live Screen Stream Container */}
-            <div className="absolute inset-0 w-full h-full bg-black flex items-center justify-center">
-              <img
-                id="live-stream-feed"
-                className="w-full h-full object-contain"
-                alt="Waiting for Live Stream..."
-              />
-            </div>
-
-            {/* Overlay Status Text */}
-            {(!isConnected || isSessionEnded || audioContextRef.current?.state === 'suspended') && (
-              <div className="absolute inset-0 flex flex-col gap-4 items-center justify-center text-gray-400 z-10 bg-black/50">
-                {!isConnected && !isSessionEnded && "Connecting to Server..."}
-                {isConnected && !isSessionEnded && (
-                  <Button
-                    onClick={() => audioContextRef.current?.resume()}
-                    variant="primary"
-                    className="bg-purple-600 hover:bg-purple-700 text-white"
-                  >
-                    <Mic className="w-4 h-4 mr-2" /> Click to Unmute / Enable Audio
-                  </Button>
-                )}
-              </div>
-            )}
-
-            {/* Session Ended Overlay */}
-            {isSessionEnded && (
-              <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/80 backdrop-blur-sm text-white space-y-4">
-                <AlertTriangle className="w-16 h-16 text-yellow-500 mb-2" />
-                <h2 className="text-2xl font-bold">Session Ended</h2>
-                <p className="text-gray-400 max-w-md text-center">
-                  The host has disconnected or the session has been marked as
-                  completed.
-                </p>
-                <div className="flex gap-4 mt-4">
-                  <Button onClick={() => router.push("/")} variant="secondary">
-                    Back to Dashboard
-                  </Button>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Agent Insights Bar */}
-          <div className="h-24 rounded-xl border border-white/10 bg-white/5 p-4 flex items-center justify-between">
-            <div className="flex items-center gap-6">
-              <div className="text-center">
-                <p className="text-xs text-gray-400 uppercase tracking-wider">
-                  Current Emotion
-                </p>
-                <div className="mt-1 flex items-center gap-2">
-                  <div
-                    className={`h-3 w-3 rounded-full ${emotion === "Neutral" ? "bg-blue-500" : "bg-orange-500"
-                      }`}
-                  />
-                  <span className="font-semibold text-lg">{emotion}</span>
-                </div>
-              </div>
-              <div className="w-px h-10 bg-white/10" />
+    <div className="flex h-screen w-full overflow-hidden">
+      <Sidebar />
+      <main className="flex-1 overflow-y-auto p-8 bg-background">
+        <div className="max-w-7xl mx-auto space-y-8">
+          {/* Top Navigation Bar */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => router.push("/live")}
+                className="rounded-xl hover:bg-linen font-bold text-muted-foreground"
+              >
+                <ArrowLeft className="w-4 h-4 mr-2" /> Back
+              </Button>
+              <div className="h-8 w-px bg-border" />
               <div>
-                <p className="text-xs text-gray-400 uppercase tracking-wider">
-                  Friction Score
-                </p>
-                <div className="mt-1 text-lg font-mono text-white">
-                  {frictionScore}
-                  <span className="text-sm text-gray-500">/100</span>
+                <h1 className="text-xl font-black text-midnight flex items-center gap-3">
+                  {sessionData?.mission?.name || "Initializing..."}
+                  {isConnected && (
+                    <Badge
+                      variant="success"
+                      className="animate-pulse py-0 px-2 text-[10px]"
+                    >
+                      LIVE
+                    </Badge>
+                  )}
+                </h1>
+                <div className="flex items-center gap-3 text-xs text-muted-foreground font-bold uppercase tracking-widest mt-0.5">
+                  <span className="flex items-center gap-1">
+                    <Clock className="w-3 h-3" /> {elapsed}
+                  </span>
+                  <span>•</span>
+                  <span className="flex items-center gap-1">
+                    <Zap className="w-3 h-3" /> Agent X-1
+                  </span>
                 </div>
               </div>
             </div>
-          </div>
-        </div>
 
-        {/* Sidebar: Logs & Events */}
-        <div className="col-span-1 flex flex-col gap-4">
-          <Card className="flex-1 border-white/5 flex flex-col bg-slate-900/40">
-            <CardHeader className="py-3 px-4 border-b border-white/5 bg-white/[0.02]">
-              <CardTitle className="text-sm font-medium flex items-center gap-2 text-white">
-                <Terminal className="w-4 h-4 text-violet-400" />
-                Live Agent Logs
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="flex-1 p-0 overflow-hidden relative">
-              <div className="absolute inset-0 overflow-y-auto p-4 space-y-3 font-mono text-xs">
-                {logs.length === 0 && (
-                  <div className="text-gray-500 text-center py-4">
-                    Waiting for event logs...
+            <div className="flex items-center gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleEndSession}
+                className="rounded-xl border-red-500/20 text-red-500 hover:bg-red-500/5 font-black uppercase tracking-widest text-[10px]"
+              >
+                <Square size={14} className="mr-2" /> Stop Observing
+              </Button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 h-[calc(100vh-12rem)]">
+            {/* Primary Feed */}
+            <div className="lg:col-span-3 flex flex-col gap-6">
+              <div className="relative flex-1 bg-midnight rounded-[40px] border-4 border-midnight shadow-2xl overflow-hidden group">
+                <div className="absolute inset-0 flex items-center justify-center bg-midnight/80">
+                  <img
+                    id="live-stream-feed"
+                    className="max-h-full max-w-full object-contain"
+                    alt="Agent Visual Stream"
+                  />
+                </div>
+
+                {/* Buffering Overlay */}
+                {(!isConnected || isSessionEnded) && (
+                  <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-midnight/90 backdrop-blur-md">
+                    {isSessionEnded ? (
+                      <div className="text-center space-y-6">
+                        <div className="p-6 bg-red-500/10 rounded-full inline-block">
+                          <AlertTriangle size={48} className="text-red-500" />
+                        </div>
+                        <div className="space-y-2">
+                          <h2 className="text-3xl font-black text-linen">
+                            Mission Terminated
+                          </h2>
+                          <p className="text-slate max-w-xs mx-auto">
+                            This session has been completed and is no longer
+                            broadcasting.
+                          </p>
+                        </div>
+                        <Button
+                          onClick={() => router.push("/")}
+                          className="rounded-2xl h-12 px-8"
+                        >
+                          Back to Control
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center gap-4">
+                        <div className="w-12 h-12 border-4 border-lavender/10 border-t-lavender rounded-full animate-spin" />
+                        <p className="text-slate font-black uppercase tracking-widest text-xs animate-pulse font-mono">
+                          Resuming encrypted feed...
+                        </p>
+                      </div>
+                    )}
                   </div>
                 )}
-                {logs.map((log, i) => (
-                  <div
-                    key={i}
-                    className="text-gray-300 border-l-2 border-white/10 pl-2 py-0.5"
-                  >
-                    <span className="opacity-50 block mb-0.5">
-                      {log.time} [{log.source}]
-                    </span>
-                    <span
-                      className={
-                        log.source === "AI"
-                          ? "text-violet-300"
-                          : log.source === "SYSTEM"
-                            ? "text-orange-300"
-                            : "text-emerald-300"
-                      }
-                    >
-                      {log.message}
-                    </span>
+
+                {/* Unmute Invite */}
+                {isConnected &&
+                  !isSessionEnded &&
+                  audioContextRef.current?.state === "suspended" && (
+                    <div className="absolute inset-0 z-10 flex items-center justify-center bg-midnight/40 backdrop-blur-sm">
+                      <Button
+                        onClick={() => audioContextRef.current?.resume()}
+                        className="rounded-[24px] px-8 h-16 text-lg font-black shadow-2xl shadow-lavender/30 bg-lavender"
+                      >
+                        <Mic className="mr-3" /> Unmute Agent Stream
+                      </Button>
+                    </div>
+                  )}
+
+                {/* HUD Overlays */}
+                <div className="absolute top-8 left-8 p-4 bg-midnight/60 backdrop-blur-md rounded-2xl border border-white/10 z-10">
+                  <div className="flex items-center gap-4">
+                    <div className="p-2 bg-lavender rounded-lg">
+                      <Activity size={20} className="text-linen" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black text-slate uppercase tracking-widest">
+                        Target URL
+                      </p>
+                      <p className="text-sm font-bold text-linen truncate max-w-[200px]">
+                        {sessionData?.mission?.url.replace(/^https?:\/\//, "")}
+                      </p>
+                    </div>
                   </div>
-                ))}
+                </div>
+
+                <div className="absolute bottom-8 right-8 flex gap-4 z-10">
+                  <div className="p-4 bg-midnight/60 backdrop-blur-md rounded-2xl border border-white/10 text-center min-w-[100px]">
+                    <p className="text-[10px] font-black text-slate uppercase tracking-widest mb-1">
+                      Friction
+                    </p>
+                    <p
+                      className={`text-2xl font-black ${frictionScore > 50 ? "text-orange-400" : "text-emerald-400"}`}
+                    >
+                      {frictionScore}
+                    </p>
+                  </div>
+                  <div className="p-4 bg-midnight/60 backdrop-blur-md rounded-2xl border border-white/10 text-center min-w-[100px]">
+                    <p className="text-[10px] font-black text-slate uppercase tracking-widest mb-1">
+                      Emotion
+                    </p>
+                    <p className="text-lg font-black text-lavender uppercase italic">
+                      {emotion}
+                    </p>
+                  </div>
+                </div>
               </div>
-            </CardContent>
-          </Card>
+
+              <div className="grid grid-cols-2 gap-6 h-24">
+                <div className="bg-linen rounded-3xl border border-midnight/5 p-4 flex items-center gap-4">
+                  <div className="p-3 bg-midnight text-linen rounded-2xl">
+                    <Zap size={20} />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">
+                      Agent Reasoning
+                    </p>
+                    <p className="text-sm font-bold text-midnight truncate">
+                      Identifying login modal interaction points...
+                    </p>
+                  </div>
+                </div>
+                <div className="bg-lavender/10 rounded-3xl border border-lavender/10 p-4 flex items-center gap-4">
+                  <div className="p-3 bg-lavender text-linen rounded-2xl">
+                    <Shield size={20} />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black text-lavender uppercase tracking-widest">
+                      Security Status
+                    </p>
+                    <p className="text-sm font-bold text-midnight">
+                      Encrypted Channel • Tier 1 Verified
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Sidebar Diagnostics */}
+            <div className="col-span-1 flex flex-col gap-6">
+              <Card className="flex-1 rounded-[40px] border-border bg-card shadow-lg flex flex-col overflow-hidden">
+                <CardHeader className="p-6 pb-4 border-b border-linen flex flex-row items-center justify-between">
+                  <CardTitle className="text-xs font-black uppercase tracking-widest text-midnight flex items-center gap-2">
+                    <Terminal size={14} className="text-lavender" />
+                    Mission Logs
+                  </CardTitle>
+                  <Badge
+                    variant="secondary"
+                    className="text-[10px] bg-linen text-midnight border-none"
+                  >
+                    LIVE
+                  </Badge>
+                </CardHeader>
+                <CardContent className="flex-1 p-4 relative">
+                  <div className="absolute inset-0 overflow-y-auto p-6 space-y-4">
+                    {logs.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center h-full text-center space-y-2 opacity-40">
+                        <Activity size={32} />
+                        <p className="text-[10px] font-bold uppercase tracking-widest">
+                          Awaiting telemetry...
+                        </p>
+                      </div>
+                    ) : (
+                      logs.map((log, i) => (
+                        <div key={i} className="space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span
+                              className={`text-[9px] font-black px-1.5 py-0.5 rounded ${
+                                log.source === "AI"
+                                  ? "bg-lavender/10 text-lavender"
+                                  : log.source === "SYSTEM"
+                                    ? "bg-midnight/10 text-midnight"
+                                    : "bg-emerald-100 text-emerald-600"
+                              }`}
+                            >
+                              {log.source}
+                            </span>
+                            <span className="text-[8px] font-mono text-slate font-bold">
+                              {log.time}
+                            </span>
+                          </div>
+                          <p className="text-xs font-medium text-midnight leading-relaxed">
+                            {log.message}
+                          </p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 }

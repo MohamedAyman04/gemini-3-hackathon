@@ -25,6 +25,22 @@ export class Mission {
   @Column('jsonb', { nullable: true })
   happyPath: any;
 
+  @Column({ nullable: true })
+  githubToken: string;
+
+  @Column({ nullable: true })
+  jiraToken: string;
+
+  @Column({ nullable: true })
+  trelloToken: string;
+
+  @Column({
+    type: 'enum',
+    enum: ['none', 'jira', 'trello'],
+    default: 'none',
+  })
+  integrationType: string;
+
   @OneToMany(() => Session, (session) => session.mission)
   sessions: Session[];
 
