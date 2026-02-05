@@ -69,7 +69,7 @@ export default function LoginPage() {
         <div className="flex flex-col items-center text-center">
           <div className="p-4 rounded-3xl mb-6 flex flex-col items-center gap-2">
             <Image
-              src="/vibecheck.svg"
+              src="/vibecheck2.svg"
               alt="VibeCheck"
               width={48}
               height={48}
@@ -149,7 +149,7 @@ export default function LoginPage() {
         </Card>
 
         <p className="text-center text-sm text-muted-foreground">
-          New to VibeCheck?{" "}
+          New to ibeCheck?{" "}
           <Link
             href="/signup"
             className="text-primary hover:text-lp-400 font-bold transition-colors"

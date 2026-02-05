@@ -14,6 +14,7 @@ import { useMediaRecorder } from "./hooks/useMediaRecorder";
 import { useAuth } from "./hooks/useAuth";
 import { useMissions } from "./hooks/useMissions";
 import { useSocket } from "./hooks/useSocket";
+import Image from "next/image";
 
 const DASHBOARD_URL =
   import.meta.env.VITE_DASHBOARD_URL || "http://localhost:5000";
@@ -272,6 +273,7 @@ function App() {
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
         body: JSON.stringify({ missionId: missionId }),
       });
 
@@ -320,7 +322,8 @@ function App() {
     try {
       // 1. Stop Recording Local & Remote
       stopRecording();
-      disconnectSocket();
+      // Don't disconnect socket yet, let finalize finish first to prevent premature backend cleanup
+      // disconnectSocket();
 
       // 2. Get Events from Content Script
       // Query ALL active tabs in normal windows to find the one recording
@@ -364,6 +367,7 @@ function App() {
         `${DASHBOARD_URL}/sessions/${currentSessionId}/finalize`,
         {
           method: "POST",
+          credentials: "include",
           body: formData,
         },
       );
@@ -379,6 +383,7 @@ function App() {
       setSessionError("Failed to upload session data. please check console.");
     } finally {
       setIsEnding(false);
+      disconnectSocket(); // Now disconnect
     }
   };
 
@@ -404,12 +409,13 @@ function App() {
       <div className="min-h-screen bg-linen text-midnight p-8 flex flex-col items-center justify-center text-center gap-8">
         <div className="flex flex-col items-center gap-4 mb-4">
           <img
-            src="/vibecheck.svg"
+            src="/vibecheck2.svg"
             alt="VibeCheck"
             className="w-20 h-20 animate-glow rounded-[32px] p-4 bg-white shadow-2xl border border-midnight/5"
+            style={{ position: "relative", left: "15px", bottom: "2px" }}
           />
           <h1 className="text-4xl font-black tracking-tight text-midnight uppercase">
-            VibeCheck
+            ibeCheck
           </h1>
         </div>
 
@@ -441,18 +447,29 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-linen text-midnight font-sans flex flex-col gap-8 p-6">
+    <div className="min-h-screen bg-linen text-midnight font-sans flex flex-col">
       {/* Header */}
-      <header className="flex items-center justify-between border-b border-midnight/5 pb-6">
+      <header className="flex items-center justify-between bg-midnight px-6 py-4 shadow-[0_4px_20px_rgba(0,0,0,0.3)] relative z-50">
         <div className="flex items-center gap-4">
-          <img src="/vibecheck.svg" alt="Logo" className="w-10 h-10" />
           <div className="flex flex-col">
-            <h1 className="text-lg font-black tracking-tight leading-none uppercase text-midnight">
-              VibeCheck
-            </h1>
+            <div className="flex items-center flex-row justify-center">
+              <Image
+                src="/vibecheck2.svg"
+                alt="Logo"
+                width={48}
+                height={48}
+                style={{ position: "relative", left: "15px", bottom: "2px" }}
+              />
+              <h1 className="text-xl font-black tracking-tight leading-none uppercase text-linen">
+                ibeCheck
+              </h1>
+            </div>
+            <span className="text-[8px] font-bold text-linen/40 tracking-[0.3em] uppercase mt-1">
+              Autonomous QA
+            </span>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           {isRecording && currentSessionId && (
             <button
               onClick={() =>
@@ -461,19 +478,27 @@ function App() {
                   "_blank",
                 )
               }
-              className="text-[10px] bg-purple-900/50 text-purple-300 px-2 py-1 rounded border border-purple-800 hover:bg-purple-900 hover:text-white transition-colors flex items-center gap-1"
+              className="text-[9px] font-black bg-lavender/20 text-lavender px-3 py-1.5 rounded-xl border border-lavender/30 hover:bg-lavender hover:text-white transition-all duration-300 flex items-center gap-1.5 uppercase tracking-wider"
             >
               <Target className="w-3 h-3" />
-              View Live
+              Live
             </button>
           )}
           <div
-            className={`flex items-center gap-2 text-xs font-medium px-2 py-1 rounded-full ${isRecording ? "bg-green-900/30 text-green-400 border border-green-800" : "bg-red-900/30 text-red-400 border border-red-800"}`}
+            className={`flex items-center gap-2 text-[10px] font-black px-3 py-1.5 rounded-xl transition-all duration-500 border ${
+              isRecording
+                ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.2)]"
+                : "bg-red-500/10 text-red-400 border-red-500/30"
+            }`}
           >
             <div
-              className={`w-2 h-2 rounded-full ${isRecording ? "bg-green-500 animate-pulse" : "bg-red-500"}`}
+              className={`w-1.5 h-1.5 rounded-full ${
+                isRecording
+                  ? "bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.6)]"
+                  : "bg-red-400"
+              }`}
             />
-            {isRecording ? "LIVE" : "OFFLINE"}
+            {isRecording ? "ONLINE" : "OFFLINE"}
           </div>
         </div>
       </header>
@@ -564,7 +589,7 @@ function App() {
             )}
 
             {/* Audio Visualizer Placeholder */}
-            <div className="w-full h-16 bg-gray-800/50 rounded-lg flex items-end justify-center gap-1 overflow-hidden border border-gray-800/50 p-2">
+            <div className="w-full h-12 bg-white/50 rounded-2xl flex items-center justify-center gap-1 overflow-hidden border border-midnight/5 p-2 shadow-inner">
               {error && (
                 <div className="flex flex-col items-center gap-2 w-full">
                   <div className="text-red-500 text-xs text-center">
@@ -602,14 +627,14 @@ function App() {
                   );
                 })
               ) : (
-                <span className="text-gray-600 text-xs uppercase tracking-wider">
+                <span className="text-midnight/40 text-[10px] font-bold uppercase tracking-widest">
                   Audio Inactive
                 </span>
               )}
             </div>
 
             {/* Controls Grid */}
-            <div className="flex flex-col gap-3 w-full">
+            <div className="flex flex-col gap-3 w-full max-w-sm">
               {/* Mission Selection */}
               {!isRecording && (
                 <div className="w-full space-y-2">
@@ -638,23 +663,40 @@ function App() {
                     </div>
                   ) : (
                     <div className="flex items-center gap-2 w-full">
-                      <div className="p-3 bg-white text-midnight/40 border border-midnight/5 rounded-2xl shadow-sm">
+                      <div className="p-4 bg-midnight text-linen border border-linen/20 rounded-2xl shadow-sm">
                         <Target className="w-6 h-6" />
                       </div>
                       <div className="relative flex-1">
                         <select
                           value={selectedMissionId}
                           onChange={(e) => {
-                            if (e.target.value === "NEW") setIsCreating(true);
-                            else setSelectedMissionId(e.target.value);
+                            if (e.target.value === "NEW") {
+                              window.open(
+                                "http://localhost:3000/missions/new",
+                                "_blank",
+                              );
+                            } else {
+                              setSelectedMissionId(e.target.value);
+                            }
                           }}
                           disabled={missionsLoading}
-                          className="w-full bg-white text-sm text-midnight rounded-2xl border border-midnight/5 px-4 py-4 focus:outline-none focus:border-lavender appearance-none truncate disabled:opacity-50 font-bold shadow-sm"
+                          className="w-full bg-midnight text-sm text-linen rounded-2xl border border-linen/20 px-4 py-4 focus:outline-none focus:border-lavender appearance-none truncate disabled:opacity-50 font-bold shadow-lg"
                         >
-                          <option value="">Select a Mission...</option>
-                          <option value="NEW">+ Create New Mission</option>
+                          <option value="" className="bg-midnight">
+                            Select a Mission...
+                          </option>
+                          <option
+                            value="NEW"
+                            className="bg-midnight text-lavender font-black"
+                          >
+                            + Create New Mission
+                          </option>
                           {missions.map((mission) => (
-                            <option key={mission.id} value={mission.id}>
+                            <option
+                              key={mission.id}
+                              value={mission.id}
+                              className="bg-midnight"
+                            >
                               {mission.name}
                             </option>
                           ))}
@@ -669,12 +711,12 @@ function App() {
               <div className="flex items-center gap-2 w-full">
                 <button
                   onClick={toggleAudio}
-                  className={`p-3 rounded-lg transition-colors flex-shrink-0 ${!isAudioEnabled ? "bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/50" : "bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white border border-gray-700"}`}
+                  className={`p-4 rounded-2xl transition-colors flex-shrink-0 border shadow-sm ${!isAudioEnabled ? "bg-red-500/10 text-red-500 hover:bg-red-500/20 border-red-500/50" : "bg-midnight text-linen hover:text-white border-linen/20 hover:border-linen/40"}`}
                 >
                   {!isAudioEnabled ? (
-                    <MicOff className="w-5 h-5" />
+                    <MicOff className="w-6 h-6" />
                   ) : (
-                    <Mic className="w-5 h-5" />
+                    <Mic className="w-6 h-6" />
                   )}
                 </button>
 
@@ -709,7 +751,7 @@ function App() {
                       <select
                         value={selectedAudioId}
                         onChange={(e) => setSelectedAudioId(e.target.value)}
-                        className="w-full bg-gray-800 text-xs text-gray-300 rounded-lg border border-gray-700 px-3 py-3 focus:outline-none focus:border-purple-500 appearance-none truncate"
+                        className="w-full bg-midnight text-sm text-linen rounded-2xl border border-linen/20 px-4 py-4 focus:outline-none focus:border-lavender appearance-none truncate disabled:opacity-50 font-bold shadow-lg"
                       >
                         {devices
                           .filter((d) => d.kind === "audioinput")
@@ -717,6 +759,7 @@ function App() {
                             <option
                               key={device.deviceId}
                               value={device.deviceId}
+                              className="bg-midnight"
                             >
                               {device.label ||
                                 `Microphone ${device.deviceId.slice(0, 5)}...`}
@@ -741,12 +784,12 @@ function App() {
               <div className="flex items-center gap-2 w-full">
                 <button
                   onClick={toggleVideo}
-                  className={`p-3 rounded-lg transition-colors flex-shrink-0 ${!isVideoEnabled ? "bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/50" : "bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white border border-gray-700"}`}
+                  className={`p-4 rounded-2xl transition-colors flex-shrink-0 border shadow-sm ${!isVideoEnabled ? "bg-red-500/10 text-red-500 hover:bg-red-500/20 border-red-500/50" : "bg-midnight text-linen hover:text-white border-linen/20 hover:border-linen/40"}`}
                 >
                   {!isVideoEnabled ? (
-                    <VideoOff className="w-5 h-5" />
+                    <VideoOff className="w-6 h-6" />
                   ) : (
-                    <Video className="w-5 h-5" />
+                    <Video className="w-6 h-6" />
                   )}
                 </button>
 
@@ -754,12 +797,16 @@ function App() {
                   <select
                     value={selectedVideoId}
                     onChange={(e) => setSelectedVideoId(e.target.value)}
-                    className="w-full bg-gray-800 text-xs text-gray-300 rounded-lg border border-gray-700 px-3 py-3 focus:outline-none focus:border-purple-500 appearance-none truncate"
+                    className="w-full bg-midnight text-sm text-linen rounded-2xl border border-linen/20 px-4 py-4 focus:outline-none focus:border-lavender appearance-none truncate disabled:opacity-50 font-bold shadow-lg"
                   >
                     {devices
                       .filter((d) => d.kind === "videoinput")
                       .map((device) => (
-                        <option key={device.deviceId} value={device.deviceId}>
+                        <option
+                          key={device.deviceId}
+                          value={device.deviceId}
+                          className="bg-midnight"
+                        >
                           {device.label ||
                             `Camera ${device.deviceId.slice(0, 5)}...`}
                         </option>

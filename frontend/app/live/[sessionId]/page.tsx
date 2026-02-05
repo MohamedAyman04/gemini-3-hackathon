@@ -56,6 +56,7 @@ export default function LiveSession({
   useEffect(() => {
     fetch(
       `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/sessions/${sessionId}`,
+      { credentials: "include" },
     )
       .then((res) => res.json())
       .then((data) => {

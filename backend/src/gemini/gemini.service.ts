@@ -9,8 +9,7 @@ export class GeminiService implements OnModuleInit {
   private readonly logger = new Logger(GeminiService.name);
   private apiKey: string | undefined;
   private genAI: types.GoogleGenAI;
-  // private LIVE_MODEL = 'gemini-3-flash-preview';
-  private LIVE_MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
+  private LIVE_MODEL = 'gemini-2.0-flash-exp';
 
   constructor(private configService: ConfigService) {
     this.apiKey = this.configService.get<string>('GEMINI_API_KEY');
@@ -20,9 +19,7 @@ export class GeminiService implements OnModuleInit {
       this.logger.error(
         'GEMINI_API_KEY environment variable is not set. Please set it before using Gemini features.',
       );
-      throw new Error(
-        'gemini-2.5-flash-native-audio-preview-12-2025',
-      );
+      throw new Error('gemini-2.5-flash-native-audio-preview-12-2025');
     }
 
     this.genAI = new types.GoogleGenAI({
@@ -274,7 +271,9 @@ export class GeminiService implements OnModuleInit {
           this.logger.error('Gemini Live WebSocket Error', error);
         },
         onclose: (event) => {
-          this.logger.warn(`Gemini Live WebSocket Closed: ${event.code} - ${event.reason}`);
+          this.logger.warn(
+            `Gemini Live WebSocket Closed: ${event.code} - ${event.reason}`,
+          );
         },
         onmessage: (message: types.LiveServerMessage) => {
           // Handle Interruption
@@ -303,7 +302,9 @@ export class GeminiService implements OnModuleInit {
           if (parts) {
             parts.forEach((part) => {
               if (part.inlineData?.data) {
-                this.logger.log(`Received Audio Chunk from Gemini: ${part.inlineData.data.length} chars`);
+                this.logger.log(
+                  `Received Audio Chunk from Gemini: ${part.inlineData.data.length} chars`,
+                );
                 onAudio(part.inlineData.data);
               }
               // Handle specific triggers -> onIntervention

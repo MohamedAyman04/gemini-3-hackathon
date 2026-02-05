@@ -38,9 +38,15 @@ export function Sidebar() {
           href="/"
           className="flex items-center gap-3 hover:opacity-80 transition-opacity"
         >
-          <Image src="/vibecheck.svg" alt="VibeCheck" width={32} height={32} />
+          <Image
+            src="/vibecheck2.svg"
+            alt="VibeCheck"
+            width={32}
+            height={32}
+            style={{ position: "relative", left: "21px", bottom: "1px" }}
+          />
           <span className="text-xl font-black tracking-tight text-linen">
-            VibeCheck
+            ibeCheck
           </span>
         </Link>
       </div>

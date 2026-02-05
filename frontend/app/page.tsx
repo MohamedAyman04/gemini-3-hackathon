@@ -61,7 +61,7 @@ export default function Home() {
             <div className="w-24 h-24 border-8 border-primary/10 border-t-primary rounded-full animate-spin" />
             <div className="absolute inset-0 flex items-center justify-center">
               <Image
-                src="/vibecheck.svg"
+                src="/vibecheck2.svg"
                 alt="VibeCheck"
                 width={48}
                 height={48}
@@ -70,7 +70,7 @@ export default function Home() {
             </div>
           </div>
           <p className="text-midnight font-black uppercase tracking-[0.2em] text-xs animate-pulse">
-            Initializing VibeCheck
+            Initializing ibeCheck
           </p>
         </div>
       </div>
@@ -90,9 +90,15 @@ function LandingPage({ router }: { router: any }) {
       {/* Navbar */}
       <nav className="flex items-center justify-between px-8 py-6 max-w-7xl mx-auto relative z-20">
         <div className="flex items-center gap-3">
-          <Image src="/vibecheck.svg" alt="VibeCheck" width={40} height={40} />
+          <Image
+            src="/vibecheck2.svg"
+            alt="VibeCheck"
+            width={40}
+            height={40}
+            style={{ position: "relative", left: "23px", bottom: "1px" }}
+          />
           <span className="text-2xl font-black tracking-tight text-midnight">
-            VibeCheck
+            ibeCheck
           </span>
         </div>
         <div className="flex items-center gap-4">
@@ -182,34 +188,24 @@ function LandingPage({ router }: { router: any }) {
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
           <div className="flex items-center gap-2">
             <Image
-              src="/vibecheck.svg"
+              src="/vibecheck2.svg"
               alt="VibeCheck"
               width={40}
               height={40}
+              style={{ position: "relative", left: "19px", bottom: "1px" }}
             />
-            <span className="text-xl font-bold tracking-tight">VibeCheck</span>
+            <span className="text-xl font-bold tracking-tight">ibeCheck</span>
           </div>
           <p className="text-muted-foreground text-sm">
             © 2026 VibeCheck AI. All rights reserved.
           </p>
           <div className="flex gap-6">
             <Link
-              href="#"
-              className="text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Twitter
-            </Link>
-            <Link
-              href="#"
+              target="_blank"
+              href="https://github.com/MohamedAyman04/gemini-3-hackathon"
               className="text-muted-foreground hover:text-foreground transition-colors"
             >
               GitHub
-            </Link>
-            <Link
-              href="#"
-              className="text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Docs
             </Link>
           </div>
         </div>
@@ -252,30 +248,43 @@ function Dashboard({ missions, router }: { missions: any[]; router: any }) {
                       Active Agents
                     </CardDescription>
                     <CardTitle className="text-4xl text-midnight font-black">
-                      12
+                      {missions.reduce(
+                        (acc, m) =>
+                          acc +
+                          (m.sessions?.filter(
+                            (s: any) => s.status === "RUNNING",
+                          ).length || 0),
+                        0,
+                      )}
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="text-xs text-emerald-600 font-bold flex items-center gap-1">
-                      <ArrowRight className="w-3 h-3 -rotate-45" />
-                      <span>+2 from last hour</span>
+                      <Activity className="w-3 h-3" />
+                      <span>Live Now</span>
                     </div>
                   </CardContent>
                 </Card>
                 <Card className="border-border bg-card hover:shadow-xl transition-shadow">
                   <CardHeader className="pb-2">
                     <CardDescription className="font-bold text-muted-foreground">
-                      Hurdles Detected
+                      Completed Sessions
                     </CardDescription>
                     <CardTitle className="text-4xl text-midnight font-black">
-                      4
+                      {missions.reduce(
+                        (acc, m) =>
+                          acc +
+                          (m.sessions?.filter(
+                            (s: any) => s.status === "COMPLETED",
+                          ).length || 0),
+                        0,
+                      )}
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="text-xs text-lavender font-bold flex items-center gap-1">
-                      <span className="text-emerald-600">
-                        Running AI Analysis
-                      </span>
+                      <CheckCircle2 className="w-3 h-3" />
+                      <span>Total archived</span>
                     </div>
                   </CardContent>
                 </Card>
@@ -369,14 +378,26 @@ function Dashboard({ missions, router }: { missions: any[]; router: any }) {
                     <div className="flex justify-between text-xs font-black uppercase tracking-tighter text-slate">
                       <span>Daily Quota</span>
                       <span className="text-linen">
-                        {missions.length}/10 Sessions
+                        {missions.reduce(
+                          (acc, m) => acc + (m.sessions?.length || 0),
+                          0,
+                        )}
+                        /50 Sessions
                       </span>
                     </div>
                     <div className="h-2 w-full rounded-full bg-white/10 overflow-hidden">
                       <div
                         className="h-full rounded-full bg-lavender shadow-[0_0_15px_rgba(144,103,198,0.5)] transition-all duration-1000"
                         style={{
-                          width: `${Math.min((missions.length / 10) * 100, 100)}%`,
+                          width: `${Math.min(
+                            (missions.reduce(
+                              (acc, m) => acc + (m.sessions?.length || 0),
+                              0,
+                            ) /
+                              50) *
+                              100,
+                            100,
+                          )}%`,
                         }}
                       />
                     </div>

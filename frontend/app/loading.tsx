@@ -8,7 +8,7 @@ export default function Loading() {
           <div className="w-24 h-24 border-8 border-primary/10 border-t-primary rounded-full animate-spin" />
           <div className="absolute inset-0 flex items-center justify-center">
             <Image
-              src="/vibecheck.svg"
+              src="/vibecheck2.svg"
               alt="VibeCheck"
               width={48}
               height={48}
@@ -17,7 +17,7 @@ export default function Loading() {
           </div>
         </div>
         <p className="text-midnight font-black uppercase tracking-[0.2em] text-xs animate-pulse">
-          VibeCheck
+          ibeCheck
         </p>
       </div>
     </div>

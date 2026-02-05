@@ -18,6 +18,26 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { Badge } from "@/components/ui/Badge";
 import Image from "next/image";
 
+function SessionTimer({ startDate }: { startDate: string }) {
+  const [elapsed, setElapsed] = useState("00:00");
+
+  useEffect(() => {
+    const start = new Date(startDate).getTime();
+    const interval = setInterval(() => {
+      const now = Date.now();
+      const diff = Math.floor((now - start) / 1000);
+      const minutes = Math.floor(diff / 60)
+        .toString()
+        .padStart(2, "0");
+      const seconds = (diff % 60).toString().padStart(2, "0");
+      setElapsed(`${minutes}:${seconds}`);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [startDate]);
+
+  return <>{elapsed}</>;
+}
+
 export default function LiveViewSelection() {
   const router = useRouter();
   const [missions, setMissions] = useState<any[]>([]);
@@ -105,17 +125,24 @@ export default function LiveViewSelection() {
               </div>
             </div>
 
-            <div className="bg-periwinkle/10 border border-periwinkle/20 rounded-3xl p-6 text-midnight group hover:bg-periwinkle/20 transition-all cursor-default">
+            <div className="bg-periwinkle/10 border border-periwinkle/20 rounded-3xl p-6 text-midnight group hover:bg-periwinkle/20 transition-all cursor-default relative overflow-hidden">
               <div className="flex flex-col gap-4">
                 <p className="text-xs font-bold uppercase tracking-widest opacity-60">
-                  Avg. Response Time
+                  Total Completed
                 </p>
                 <div className="flex items-end gap-3">
                   <span className="text-5xl font-black leading-none text-periwinkle">
-                    1.2s
+                    {missions.reduce(
+                      (acc, m) =>
+                        acc +
+                        (m.sessions?.filter(
+                          (s: any) => s.status === "COMPLETED",
+                        ).length || 0),
+                      0,
+                    )}
                   </span>
                   <span className="text-xs font-bold text-muted-foreground mb-1">
-                    Optimal
+                    Sessions
                   </span>
                 </div>
               </div>
@@ -127,12 +154,12 @@ export default function LiveViewSelection() {
               </div>
               <div className="flex flex-col gap-4 relative z-10">
                 <p className="text-xs font-bold uppercase tracking-widest opacity-60">
-                  Hurdles Cleared
+                  Mission Success Rate
                 </p>
                 <div className="flex items-end gap-3">
-                  <span className="text-5xl font-black leading-none">248</span>
+                  <span className="text-5xl font-black leading-none">100%</span>
                   <span className="text-xs font-bold text-emerald-600 mb-1">
-                    +12 today
+                    Nominal
                   </span>
                 </div>
               </div>
@@ -152,7 +179,7 @@ export default function LiveViewSelection() {
                   <div className="w-16 h-16 border-4 border-lavender/10 border-t-lavender rounded-full animate-spin" />
                   <div className="absolute inset-0 flex items-center justify-center">
                     <Image
-                      src="/vibecheck.svg"
+                      src="/vibecheck2.svg"
                       alt="Loading"
                       width={24}
                       height={24}
@@ -236,7 +263,9 @@ export default function LiveViewSelection() {
                           <div className="flex items-center justify-between text-xs font-bold text-muted-foreground mb-4">
                             <span>SESSION DURATION</span>
                             <span className="text-midnight font-black tabular-nums">
-                              14:22
+                              <SessionTimer
+                                startDate={runningSession.createdAt}
+                              />
                             </span>
                           </div>
                           <Button className="w-full h-12 rounded-2xl gap-2 font-bold group-hover:shadow-lg group-hover:shadow-lavender/20 transition-all">

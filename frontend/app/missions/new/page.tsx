@@ -34,11 +34,13 @@ export default function NewMissionPage() {
     e.preventDefault();
     setLoading(true);
     try {
+      console.log("url:", process.env.NEXT_PUBLIC_API_URL);
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/missions`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          credentials: "include",
           body: JSON.stringify(formData),
         },
       );

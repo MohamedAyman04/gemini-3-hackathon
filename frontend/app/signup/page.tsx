@@ -76,12 +76,23 @@ export default function SignupPage() {
         </Link>
 
         <div className="flex flex-col items-center text-center">
-          {/* <div className="p-4 rounded-3xl bg-primary/10 mb-6 shadow-2xl shadow-primary/10 ring-1 ring-primary/20"> */}
-          <Image src="/vibecheck.svg" alt="VibeCheck" width={48} height={48} />
-          {/* </div> */}
-          <h1 className="text-4xl font-black tracking-tight text-foreground mb-3">
-            Join VibeCheck
-          </h1>
+          <div className="flex items-center">
+            <p className="text-3xl font-black tracking-tight text-foreground mb-3">
+              Join
+            </p>
+            <div className="flex items-center relative right-4">
+              <Image
+                src="/vibecheck2.svg"
+                alt="VibeCheck"
+                width={48}
+                height={48}
+                style={{ position: "relative", left: "14px", bottom: "7px" }}
+              />
+              <span className="text-2xl font-black tracking-tight text-foreground mb-3">
+                ibeCheck
+              </span>
+            </div>
+          </div>
           <p className="text-muted-foreground max-w-[320px]">
             Start your journey with autonomous AI QA agents today.
           </p>
