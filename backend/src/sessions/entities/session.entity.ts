@@ -17,6 +17,7 @@ export interface SessionType {
   transcript: string;
   analysis: any;
   events: any[];
+  issues: any[];
 }
 
 @Entity()
@@ -47,6 +48,9 @@ export class Session implements SessionType {
 
   @Column('jsonb', { nullable: true, default: [] })
   events: any[];
+
+  @Column('jsonb', { nullable: true, default: [] })
+  issues: any[];
 
   @CreateDateColumn()
   createdAt: Date;

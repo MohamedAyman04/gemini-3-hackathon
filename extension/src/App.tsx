@@ -6,8 +6,6 @@ import {
   Activity,
   Bug,
   LogIn,
-  Video,
-  VideoOff,
   Target,
 } from "lucide-react";
 import { useMediaRecorder } from "./hooks/useMediaRecorder";
@@ -36,17 +34,12 @@ function App() {
     stopRecording,
     getRecordedBlob,
     toggleAudio,
-    toggleVideo,
     isAudioEnabled,
-    isVideoEnabled,
     audioData,
     error,
     devices,
     selectedAudioId,
     setSelectedAudioId,
-    selectedVideoId,
-    setSelectedVideoId,
-    stream,
     checkPermissions,
     permissionError,
     prepareStream,
@@ -65,8 +58,6 @@ function App() {
   const [newMissionName, setNewMissionName] = useState("");
   const [newMissionContext, setNewMissionContext] = useState("");
 
-  const videoRef = useRef<HTMLVideoElement>(null);
-
   // Audio Playback State
   const audioContextRef = useRef<AudioContext | null>(null);
   const nextStartTimeRef = useRef<number>(0);
@@ -76,12 +67,6 @@ function App() {
       setSelectedMissionId(missions[0].id);
     }
   }, [missions, selectedMissionId]);
-
-  useEffect(() => {
-    if (videoRef.current && stream) {
-      videoRef.current.srcObject = stream;
-    }
-  }, [stream, isVideoEnabled]);
 
   // Audio Player Loop
   useEffect(() => {
@@ -725,62 +710,6 @@ function App() {
                   )}
                 </div>
               </div>
-
-              {/* Camera Selection */}
-              <div className="flex items-center gap-2 w-full">
-                <button
-                  onClick={toggleVideo}
-                  className={`p-3 rounded-lg transition-colors flex-shrink-0 ${!isVideoEnabled ? "bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/50" : "bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white border border-gray-700"}`}
-                >
-                  {!isVideoEnabled ? (
-                    <VideoOff className="w-5 h-5" />
-                  ) : (
-                    <Video className="w-5 h-5" />
-                  )}
-                </button>
-
-                <div className="relative flex-1">
-                  <select
-                    value={selectedVideoId}
-                    onChange={(e) => setSelectedVideoId(e.target.value)}
-                    className="w-full bg-gray-800 text-xs text-gray-300 rounded-lg border border-gray-700 px-3 py-3 focus:outline-none focus:border-purple-500 appearance-none truncate"
-                  >
-                    {devices
-                      .filter((d) => d.kind === "videoinput")
-                      .map((device) => (
-                        <option key={device.deviceId} value={device.deviceId}>
-                          {device.label ||
-                            `Camera ${device.deviceId.slice(0, 5)}...`}
-                        </option>
-                      ))}
-                  </select>
-                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
-                    <svg
-                      className="fill-current h-4 w-4"
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 20 20"
-                    >
-                      <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-
-              {/* Video Preview */}
-              {isVideoEnabled && isRecording && (
-                <div className="w-full aspect-video bg-black rounded-lg overflow-hidden border border-gray-800 relative group">
-                  <video
-                    ref={videoRef}
-                    autoPlay
-                    muted
-                    playsInline
-                    className="w-full h-full object-cover transform scale-x-[-1]"
-                  />
-                  <div className="absolute bottom-2 left-2 bg-black/50 px-2 py-1 rounded text-[10px] text-white">
-                    Camera Preview
-                  </div>
-                </div>
-              )}
             </div>
           </>
         )}

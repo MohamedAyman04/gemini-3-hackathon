@@ -66,6 +66,7 @@ export class SessionsService {
       const summary = await this.geminiService.generateSessionSummary(
         session.transcript || '',
         logs,
+        session.issues || [],
       );
       session.analysis = { summary };
     } catch (e) {
@@ -92,6 +93,18 @@ export class SessionsService {
     const session = await this.findOne(sessionId);
     const updatedTranscript = (session?.transcript || '') + text;
     return this.update(sessionId, { transcript: updatedTranscript });
+  }
+
+  async appendIssue(sessionId: string, issue: any) {
+    return this.sessionsRepository
+      .createQueryBuilder()
+      .update(Session)
+      .set({
+        issues: () => `COALESCE(issues, '[]'::jsonb) || :newIssue::jsonb`,
+      })
+      .setParameter('newIssue', JSON.stringify([issue]))
+      .where('id = :id', { id: sessionId })
+      .execute();
   }
 
   remove(id: string) {
