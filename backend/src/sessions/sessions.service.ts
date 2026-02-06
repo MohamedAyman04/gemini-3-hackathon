@@ -24,7 +24,10 @@ export class SessionsService {
   }
 
   findAll() {
-    return this.sessionsRepository.find();
+    return this.sessionsRepository.find({
+      relations: ['mission'],
+      order: { createdAt: 'DESC' },
+    });
   }
 
   findOne(id: string) {
@@ -115,15 +118,24 @@ export class SessionsService {
   }
 
   async appendIssue(sessionId: string, issue: any) {
-    return this.sessionsRepository
-      .createQueryBuilder()
-      .update(Session)
-      .set({
-        issues: () => `COALESCE(issues, '[]'::jsonb) || :newIssue::jsonb`,
-      })
-      .setParameter('newIssue', JSON.stringify([issue]))
-      .where('id = :id', { id: sessionId })
-      .execute();
+    console.log(`[SessionsService] Appending issue to session ${sessionId}:`, JSON.stringify(issue));
+    try {
+      const result = await this.sessionsRepository
+        .createQueryBuilder()
+        .update(Session)
+        .set({
+          issues: () => `COALESCE(issues, '[]'::jsonb) || :newIssue::jsonb`,
+        })
+        .setParameter('newIssue', JSON.stringify([issue]))
+        .where('id = :id', { id: sessionId })
+        .execute();
+
+      console.log(`[SessionsService] Append result:`, result);
+      return result;
+    } catch (error) {
+      console.error(`[SessionsService] Failed to append issue:`, error);
+      throw error;
+    }
   }
 
   remove(id: string) {

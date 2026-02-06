@@ -1,13 +1,29 @@
 @import "tailwindcss";
 
 :root {
+  --lavender: #9067c6;
+  --periwinkle: #8d86c9;
+  --slate: #cac4ce;
+  --midnight: #242038;
+  --linen: #f7ece1;
+}
+
+@theme inline {
+  --color-lavender: var(--lavender);
+  --color-periwinkle: var(--periwinkle);
+  --color-slate: var(--slate);
+  --color-midnight: var(--midnight);
+  --color-linen: var(--linen);
+}
+
+:root {
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
 
   color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+  color: var(--midnight);
+  background-color: var(--linen);
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;

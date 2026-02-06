@@ -9,7 +9,11 @@ dotenv.config({ path: path.join(__dirname, '../.env') });
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.enableCors({
-    origin: true, // Allow all origins
+    origin: [
+      'http://localhost:3000',
+      'http://127.0.0.1:3000',
+      /^chrome-extension:\/\//,
+    ],
     credentials: true,
   });
   app.use(cookieParser());

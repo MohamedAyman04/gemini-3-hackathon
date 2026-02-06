@@ -3,4 +3,8 @@ export class CreateMissionDto {
   url: string;
   context: string;
   happyPath?: any;
+  githubToken?: string;
+  jiraToken?: string;
+  trelloToken?: string;
+  integrationType?: 'none' | 'jira' | 'trello';
 }

@@ -60,6 +60,12 @@ export class SessionsGateway
 
         // 3. cleanup gemini session
         sessionData.geminiSession.close();
+
+        // Notify viewers
+        this.server
+          .to(sessionId)
+          .emit('session_ended', { reason: 'Host disconnected' });
+
         this.sessionsService.update(sessionId, { status: 'COMPLETED' });
         this.activeSessions.delete(sessionId);
       }
@@ -120,7 +126,9 @@ export class SessionsGateway
       data.sessionId,
       (audioBase64) => {
         // Emit to ALL clients in the room (Host + Viewers)
-        console.log(`[SessionsGateway] Emitting ai_audio to ${data.sessionId}, size: ${audioBase64.length}`);
+        console.log(
+          `[SessionsGateway] Emitting ai_audio to ${data.sessionId}, size: ${audioBase64.length}`,
+        );
         this.server.to(data.sessionId).emit('ai_audio', { audio: audioBase64 });
       },
       (trigger) => {
@@ -144,7 +152,12 @@ export class SessionsGateway
         } else {
           // Continuity: Add a space if the new chunk doesn't start with punctuation/space
           // This is a naive heuristic but helps with "today?Noted." -> "today? Noted."
-          if (text && text.length > 0 && !/^\s/.test(text) && !/^[.,?!]/.test(text)) {
+          if (
+            text &&
+            text.length > 0 &&
+            !/^\s/.test(text) &&
+            !/^[.,?!]/.test(text)
+          ) {
             contentToAppend = ' ' + text;
           }
         }
@@ -158,7 +171,8 @@ export class SessionsGateway
       },
       (issue) => {
         console.log(`[SessionsGateway] Issue logged for session ${data.sessionId}:`, issue);
-        this.sessionsService.appendIssue(data.sessionId, { ...issue, timestamp: Date.now() });
+        this.sessionsService.appendIssue(data.sessionId, { ...issue, timestamp: Date.now() })
+          .catch(err => console.error(`[SessionsGateway] Error persisting issue:`, err));
         this.server.to(data.sessionId).emit('issue_logged', issue);
       },
       {
@@ -255,7 +269,10 @@ export class SessionsGateway
       // Throttling: Only send to Gemini every ~1000ms (1 FPS)
       // Broadcast to viewers every frame (10 FPS)
       const now = Date.now();
-      if (!session.lastGeminiFrameTime || now - session.lastGeminiFrameTime > 1000) {
+      if (
+        !session.lastGeminiFrameTime ||
+        now - session.lastGeminiFrameTime > 1000
+      ) {
         session.lastGeminiFrameTime = now;
         session.geminiSession.sendRealtimeInput({
           media: {
@@ -268,7 +285,8 @@ export class SessionsGateway
       // Broadcast to frontend viewers (exclude sender)
       client.broadcast.to(sessionId).emit('screen_frame', data);
 
-      if (Math.random() < 0.01) { // Reduced log frequency further
+      if (Math.random() < 0.01) {
+        // Reduced log frequency further
         console.log(
           `[SessionsGateway] Broadcasting screen frame for session ${sessionId}`,
         );

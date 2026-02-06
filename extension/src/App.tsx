@@ -12,13 +12,14 @@ import { useMediaRecorder } from "./hooks/useMediaRecorder";
 import { useAuth } from "./hooks/useAuth";
 import { useMissions } from "./hooks/useMissions";
 import { useSocket } from "./hooks/useSocket";
+import Image from "next/image";
 
 const DASHBOARD_URL =
   import.meta.env.VITE_DASHBOARD_URL || "http://localhost:5000";
 
 function App() {
   const { missions, isLoading: missionsLoading, createMission } = useMissions();
-  const { isAuthenticated, isLoading, user, login, debugLogin } = useAuth();
+  const { isAuthenticated, isLoading, login, debugLogin } = useAuth();
   const {
     socket,
     isConnected: isSocketConnected,
@@ -75,11 +76,13 @@ function App() {
 
     const processQueue = async () => {
       // 1. Check if AudioContext is ready/resumed
-      if (audioContextRef.current?.state === 'suspended') {
+      if (audioContextRef.current?.state === "suspended") {
         try {
           await audioContextRef.current.resume();
           console.log("Resumed AudioContext");
-        } catch (e) { /* ignore */ }
+        } catch (e) {
+          /* ignore */
+        }
       }
 
       // 2. Consume Audio
@@ -143,14 +146,14 @@ function App() {
   useEffect(() => {
     return () => {
       if (audioContextRef.current) audioContextRef.current.close();
-    }
+    };
   }, []);
 
   // Watch for "ai_interrupted" via socket side-effect (or just check queue clear)
   // useSocket clears queue internaly. We just need to stop CURRENTLY playing audio?
   // Web Audio API text scheduling is hard to stop individually without disconnecting nodes.
-  // For simplicity, we just clear the queue for *future* chunks. 
-  // If we wanted to stop immediate sound, we'd need to track active nodes. 
+  // For simplicity, we just clear the queue for *future* chunks.
+  // If we wanted to stop immediate sound, we'd need to track active nodes.
   // Let's stick to queue clearing for now as per plan.
 
   const [pendingSession, setPendingSession] = useState(false);
@@ -214,7 +217,7 @@ function App() {
       if (!audioContextRef.current) {
         audioContextRef.current = new AudioContext({ sampleRate: 24000 });
       }
-      if (audioContextRef.current.state === 'suspended') {
+      if (audioContextRef.current.state === "suspended") {
         await audioContextRef.current.resume();
       }
 
@@ -255,6 +258,7 @@ function App() {
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
         body: JSON.stringify({ missionId: missionId }),
       });
 
@@ -303,7 +307,8 @@ function App() {
     try {
       // 1. Stop Recording Local & Remote
       stopRecording();
-      disconnectSocket();
+      // Don't disconnect socket yet, let finalize finish first to prevent premature backend cleanup
+      // disconnectSocket();
 
       // 2. Get Events from Content Script
       // Query ALL active tabs in normal windows to find the one recording
@@ -347,6 +352,7 @@ function App() {
         `${DASHBOARD_URL}/sessions/${currentSessionId}/finalize`,
         {
           method: "POST",
+          credentials: "include",
           body: formData,
         },
       );
@@ -362,6 +368,7 @@ function App() {
       setSessionError("Failed to upload session data. please check console.");
     } finally {
       setIsEnding(false);
+      disconnectSocket(); // Now disconnect
     }
   };
 
@@ -384,22 +391,29 @@ function App() {
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-gray-900 text-white p-6 flex flex-col items-center justify-center text-center gap-6">
-        <div className="flex items-center gap-2 mb-4">
-          <Activity className="text-purple-500 w-10 h-10" />
-          <h1 className="text-2xl font-bold tracking-tight">VibeCheck</h1>
+      <div className="min-h-screen bg-linen text-midnight p-8 flex flex-col items-center justify-center text-center gap-8">
+        <div className="flex flex-col items-center gap-4 mb-4">
+          <img
+            src="/vibecheck2.svg"
+            alt="VibeCheck"
+            className="w-20 h-20 animate-glow rounded-[32px] p-4 bg-white shadow-2xl border border-midnight/5"
+            style={{ position: "relative", left: "15px", bottom: "2px" }}
+          />
+          <h1 className="text-4xl font-black tracking-tight text-midnight uppercase">
+            ibeCheck
+          </h1>
         </div>
 
-        <p className="text-gray-400 max-w-xs">
+        <p className="text-muted-foreground max-w-xs font-medium">
           Connect your account to start an autonomous testing session.
         </p>
 
         <button
           onClick={login}
-          className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg font-medium transition-colors w-full justify-center max-w-xs"
+          className="flex items-center gap-2 bg-lavender hover:opacity-90 text-white px-8 py-5 rounded-2xl font-black uppercase tracking-widest transition-all w-full justify-center max-w-xs shadow-2xl shadow-lavender/40"
         >
           <LogIn className="w-5 h-5" />
-          Sign in with Dashboard
+          Sign in
         </button>
 
         {/* Dev Mode Bypass */}
@@ -418,23 +432,29 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white p-4 font-sans flex flex-col gap-6">
+    <div className="min-h-screen bg-linen text-midnight font-sans flex flex-col">
       {/* Header */}
-      <header className="flex items-center justify-between border-b border-gray-800 pb-4">
-        <div className="flex items-center gap-3">
-          <Activity className="text-purple-500 w-6 h-6" />
+      <header className="flex items-center justify-between bg-midnight px-6 py-4 shadow-[0_4px_20px_rgba(0,0,0,0.3)] relative z-50">
+        <div className="flex items-center gap-4">
           <div className="flex flex-col">
-            <h1 className="text-lg font-bold tracking-tight leading-none">
-              VibeCheck
-            </h1>
-            {user && (
-              <span className="text-[10px] text-gray-400">
-                Hi, {user.name.split(" ")[0]}
-              </span>
-            )}
+            <div className="flex items-center flex-row justify-center">
+              <Image
+                src="/vibecheck2.svg"
+                alt="Logo"
+                width={48}
+                height={48}
+                style={{ position: "relative", left: "15px", bottom: "2px" }}
+              />
+              <h1 className="text-xl font-black tracking-tight leading-none uppercase text-linen">
+                ibeCheck
+              </h1>
+            </div>
+            <span className="text-[8px] font-bold text-linen/40 tracking-[0.3em] uppercase mt-1">
+              Autonomous QA
+            </span>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           {isRecording && currentSessionId && (
             <button
               onClick={() =>
@@ -443,19 +463,25 @@ function App() {
                   "_blank",
                 )
               }
-              className="text-[10px] bg-purple-900/50 text-purple-300 px-2 py-1 rounded border border-purple-800 hover:bg-purple-900 hover:text-white transition-colors flex items-center gap-1"
+              className="text-[9px] font-black bg-lavender/20 text-lavender px-3 py-1.5 rounded-xl border border-lavender/30 hover:bg-lavender hover:text-white transition-all duration-300 flex items-center gap-1.5 uppercase tracking-wider"
             >
               <Target className="w-3 h-3" />
-              View Live
+              Live
             </button>
           )}
           <div
-            className={`flex items-center gap-2 text-xs font-medium px-2 py-1 rounded-full ${isRecording ? "bg-green-900/30 text-green-400 border border-green-800" : "bg-red-900/30 text-red-400 border border-red-800"}`}
+            className={`flex items-center gap-2 text-[10px] font-black px-3 py-1.5 rounded-xl transition-all duration-500 border ${isRecording
+                ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.2)]"
+                : "bg-red-500/10 text-red-400 border-red-500/30"
+              }`}
           >
             <div
-              className={`w-2 h-2 rounded-full ${isRecording ? "bg-green-500 animate-pulse" : "bg-red-500"}`}
+              className={`w-1.5 h-1.5 rounded-full ${isRecording
+                  ? "bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.6)]"
+                  : "bg-red-400"
+                }`}
             />
-            {isRecording ? "LIVE" : "OFFLINE"}
+            {isRecording ? "ONLINE" : "OFFLINE"}
           </div>
         </div>
       </header>
@@ -513,12 +539,12 @@ function App() {
             {/* Connection Ring */}
             <div className="relative group">
               <div
-                className={`absolute -inset-1 rounded-full blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200 ${isRecording ? "bg-gradient-to-r from-purple-600 to-blue-600" : "bg-gray-700"}`}
+                className={`absolute -inset-1 rounded-full blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200 ${isRecording ? "bg-gradient-to-r from-red-600 to-orange-600" : "bg-lavender"}`}
               ></div>
               <button
                 onClick={toggleConnection}
                 disabled={isEnding}
-                className={`relative w-40 h-40 rounded-full flex flex-col items-center justify-center bg-gray-900 border-4 transition-all duration-300 shadow-2xl ${isRecording ? "border-red-500 shadow-red-500/20" : "border-purple-500 hover:border-purple-400"}`}
+                className={`relative w-44 h-44 rounded-full flex flex-col items-center justify-center bg-white border-[6px] transition-all duration-300 shadow-2xl ${isRecording ? "border-red-500 shadow-red-500/20" : "border-lavender hover:border-periwinkle"}`}
               >
                 {isEnding ? (
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
@@ -546,14 +572,19 @@ function App() {
             )}
 
             {/* Audio Visualizer Placeholder */}
-            <div className="w-full h-16 bg-gray-800/50 rounded-lg flex items-end justify-center gap-1 overflow-hidden border border-gray-800/50 p-2">
+            <div className="w-full h-12 bg-white/50 rounded-2xl flex items-center justify-center gap-1 overflow-hidden border border-midnight/5 p-2 shadow-inner">
               {error && (
                 <div className="flex flex-col items-center gap-2 w-full">
-                  <div className="text-red-500 text-xs text-center">{error}</div>
+                  <div className="text-red-500 text-xs text-center">
+                    {error}
+                  </div>
                   {error.includes("denied") && (
                     <button
                       onClick={() =>
-                        window.open(chrome.runtime.getURL("popup.html"), "_blank")
+                        window.open(
+                          chrome.runtime.getURL("popup.html"),
+                          "_blank",
+                        )
                       }
                       className="text-xs bg-gray-800 hover:bg-gray-700 text-white px-3 py-1 rounded border border-gray-600 transition-colors"
                     >
@@ -570,7 +601,7 @@ function App() {
                   return (
                     <div
                       key={i}
-                      className="w-1 bg-purple-500 rounded-t-sm transition-all duration-75"
+                      className="w-1 bg-lavender rounded-t-sm transition-all duration-75"
                       style={{
                         height: `${height}%`,
                         opacity: 0.5 + value / 510,
@@ -579,14 +610,14 @@ function App() {
                   );
                 })
               ) : (
-                <span className="text-gray-600 text-xs uppercase tracking-wider">
+                <span className="text-midnight/40 text-[10px] font-bold uppercase tracking-widest">
                   Audio Inactive
                 </span>
               )}
             </div>
 
             {/* Controls Grid */}
-            <div className="flex flex-col gap-3 w-full">
+            <div className="flex flex-col gap-3 w-full max-w-sm">
               {/* Mission Selection */}
               {!isRecording && (
                 <div className="w-full space-y-2">
@@ -615,23 +646,40 @@ function App() {
                     </div>
                   ) : (
                     <div className="flex items-center gap-2 w-full">
-                      <div className="p-3 bg-gray-800 text-gray-400 border border-gray-700 rounded-lg">
-                        <Target className="w-5 h-5" />
+                      <div className="p-4 bg-midnight text-linen border border-linen/20 rounded-2xl shadow-sm">
+                        <Target className="w-6 h-6" />
                       </div>
                       <div className="relative flex-1">
                         <select
                           value={selectedMissionId}
                           onChange={(e) => {
-                            if (e.target.value === "NEW") setIsCreating(true);
-                            else setSelectedMissionId(e.target.value);
+                            if (e.target.value === "NEW") {
+                              window.open(
+                                "http://localhost:3000/missions/new",
+                                "_blank",
+                              );
+                            } else {
+                              setSelectedMissionId(e.target.value);
+                            }
                           }}
                           disabled={missionsLoading}
-                          className="w-full bg-gray-800 text-xs text-gray-300 rounded-lg border border-gray-700 px-3 py-3 focus:outline-none focus:border-purple-500 appearance-none truncate disabled:opacity-50"
+                          className="w-full bg-midnight text-sm text-linen rounded-2xl border border-linen/20 px-4 py-4 focus:outline-none focus:border-lavender appearance-none truncate disabled:opacity-50 font-bold shadow-lg"
                         >
-                          <option value="">Select a Mission...</option>
-                          <option value="NEW">+ Create New Mission</option>
+                          <option value="" className="bg-midnight">
+                            Select a Mission...
+                          </option>
+                          <option
+                            value="NEW"
+                            className="bg-midnight text-lavender font-black"
+                          >
+                            + Create New Mission
+                          </option>
                           {missions.map((mission) => (
-                            <option key={mission.id} value={mission.id}>
+                            <option
+                              key={mission.id}
+                              value={mission.id}
+                              className="bg-midnight"
+                            >
                               {mission.name}
                             </option>
                           ))}
@@ -646,19 +694,19 @@ function App() {
               <div className="flex items-center gap-2 w-full">
                 <button
                   onClick={toggleAudio}
-                  className={`p-3 rounded-lg transition-colors flex-shrink-0 ${!isAudioEnabled ? "bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/50" : "bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white border border-gray-700"}`}
+                  className={`p-4 rounded-2xl transition-colors flex-shrink-0 border shadow-sm ${!isAudioEnabled ? "bg-red-500/10 text-red-500 hover:bg-red-500/20 border-red-500/50" : "bg-midnight text-linen hover:text-white border-linen/20 hover:border-linen/40"}`}
                 >
                   {!isAudioEnabled ? (
-                    <MicOff className="w-5 h-5" />
+                    <MicOff className="w-6 h-6" />
                   ) : (
-                    <Mic className="w-5 h-5" />
+                    <Mic className="w-6 h-6" />
                   )}
                 </button>
 
                 {/* Device Selection Dropdown or Permission Request */}
                 <div className="relative flex-1">
-                  {devices.filter((d) => d.kind === "audioinput").length === 0 ||
-                    permissionError ? (
+                  {devices.filter((d) => d.kind === "audioinput").length ===
+                    0 || permissionError ? (
                     <button
                       onClick={() => {
                         if (permissionError) {
@@ -686,12 +734,16 @@ function App() {
                       <select
                         value={selectedAudioId}
                         onChange={(e) => setSelectedAudioId(e.target.value)}
-                        className="w-full bg-gray-800 text-xs text-gray-300 rounded-lg border border-gray-700 px-3 py-3 focus:outline-none focus:border-purple-500 appearance-none truncate"
+                        className="w-full bg-midnight text-sm text-linen rounded-2xl border border-linen/20 px-4 py-4 focus:outline-none focus:border-lavender appearance-none truncate disabled:opacity-50 font-bold shadow-lg"
                       >
                         {devices
                           .filter((d) => d.kind === "audioinput")
                           .map((device) => (
-                            <option key={device.deviceId} value={device.deviceId}>
+                            <option
+                              key={device.deviceId}
+                              value={device.deviceId}
+                              className="bg-midnight"
+                            >
                               {device.label ||
                                 `Microphone ${device.deviceId.slice(0, 5)}...`}
                             </option>
@@ -716,10 +768,10 @@ function App() {
       </main>
 
       {/* Live Chat / Events */}
-      <section className="bg-gray-800/30 rounded-xl p-4 border border-gray-800 h-48 flex flex-col">
-        <div className="flex items-center gap-2 mb-3 text-gray-400 border-b border-gray-700/50 pb-2">
-          <Activity className="w-4 h-4" />
-          <h3 className="text-xs font-bold uppercase tracking-wider">
+      <section className="bg-white rounded-[40px] p-6 border border-midnight/5 h-64 flex flex-col shadow-xl">
+        <div className="flex items-center gap-3 mb-4 text-midnight border-b border-midnight/5 pb-4">
+          <Activity className="w-5 h-5 text-lavender" />
+          <h3 className="text-[10px] font-black uppercase tracking-[0.3em]">
             Live Interaction
           </h3>
         </div>
@@ -738,8 +790,8 @@ function App() {
               >
                 <div
                   className={`max-w-[85%] text-xs p-2 rounded-lg ${msg.source === "ai"
-                    ? "bg-purple-900/30 border border-purple-800/50 text-purple-200 rounded-tl-none"
-                    : "bg-gray-800 border border-gray-700 text-gray-300 rounded-tr-none"
+                      ? "bg-purple-900/30 border border-purple-800/50 text-purple-200 rounded-tl-none"
+                      : "bg-gray-800 border border-gray-700 text-gray-300 rounded-tr-none"
                     }`}
                 >
                   {msg.source === "ai" && (
@@ -753,8 +805,8 @@ function App() {
             ))
           )}
         </div>
-      </section >
-    </div >
+      </section>
+    </div>
   );
 }
 export default App;

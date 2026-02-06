@@ -9,6 +9,9 @@ import {
   Activity,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useEffect, useState } from "react";
+import { getMe } from "@/lib/api";
+import Image from "next/image";
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
@@ -18,18 +21,34 @@ const navigation = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const [user, setUser] = useState<any>(null);
+
+  useEffect(() => {
+    getMe()
+      .then(setUser)
+      .catch(() => {});
+  }, []);
+
+  const emailPrefix = user?.email?.split("@")[0] || "User";
 
   return (
-    <div className="flex h-screen w-64 flex-col border-r border-white/5 bg-slate-950/50 backdrop-blur-xl">
-      <div className="flex h-16 items-center px-6">
-        <div className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center">
-            <PlayCircle className="h-5 w-5 text-white" />
-          </div>
-          <span className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">
-            VibeCheck
+    <div className="flex h-screen w-64 flex-col border-r border-midnight/10 bg-sidebar text-sidebar-foreground shadow-2xl">
+      <div className="flex h-20 items-center bg-sidebar px-6 border-b border-linen/5 mb-2">
+        <Link
+          href="/"
+          className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+        >
+          <Image
+            src="/vibecheck2.svg"
+            alt="VibeCheck"
+            width={32}
+            height={32}
+            style={{ position: "relative", left: "21px", bottom: "1px" }}
+          />
+          <span className="text-xl font-black tracking-tight text-linen">
+            ibeCheck
           </span>
-        </div>
+        </Link>
       </div>
 
       <div className="flex-1 overflow-y-auto px-3 py-4">
@@ -43,16 +62,16 @@ export function Sidebar() {
                 className={cn(
                   "group flex items-center rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
                   isActive
-                    ? "bg-violet-600/10 text-violet-400"
-                    : "text-gray-400 hover:bg-white/5 hover:text-white",
+                    ? "bg-primary text-primary-foreground shadow-lg shadow-black/20"
+                    : "text-slate hover:bg-linen/5 hover:text-linen",
                 )}
               >
                 <item.icon
                   className={cn(
                     "mr-3 h-5 w-5 flex-shrink-0 transition-colors",
                     isActive
-                      ? "text-violet-400"
-                      : "text-gray-500 group-hover:text-white",
+                      ? "text-primary-foreground"
+                      : "text-slate group-hover:text-linen",
                   )}
                   aria-hidden="true"
                 />
@@ -63,12 +82,18 @@ export function Sidebar() {
         </nav>
       </div>
 
-      <div className="border-t border-white/5 p-4">
-        <div className="flex items-center gap-3 rounded-xl bg-white/5 p-3">
-          <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-pink-500 to-violet-500" />
+      <div className="border-t border-linen/5 p-4">
+        <div className="flex items-center gap-3 rounded-xl bg-linen/5 p-3">
+          <div className="h-10 w-10 rounded-full bg-gradient-to-tr from-lavender to-periwinkle flex items-center justify-center text-linen font-black text-sm border-2 border-linen/10">
+            {emailPrefix[0]?.toUpperCase()}
+          </div>
           <div className="overflow-hidden">
-            <p className="truncate text-sm font-medium text-white">Dev Team</p>
-            <p className="truncate text-xs text-gray-500">Free Plan</p>
+            <p className="truncate text-sm font-bold text-linen capitalize">
+              {emailPrefix}
+            </p>
+            <p className="truncate text-[10px] text-slate font-medium uppercase tracking-widest opacity-60">
+              Pro Account
+            </p>
           </div>
         </div>
       </div>
