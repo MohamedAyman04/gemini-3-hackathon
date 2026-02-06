@@ -116,8 +116,8 @@ export default function LoginPage() {
           </form>
         </Card>
 
-        <p className="text-center text-sm text-gray-500">
-          Don't have an account?{" "}
+        <p className="text-center text-sm text-muted-foreground">
+          New to VibeCheck?{" "}
           <Link
             href="/signup"
             className="text-violet-400 hover:text-violet-300 cursor-pointer font-medium"

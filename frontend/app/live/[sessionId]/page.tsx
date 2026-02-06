@@ -84,7 +84,6 @@ export default function LiveSession({
       addLog(data.text, "AI");
     });
 
-    // Handle Audio Playback (User & AI)
     const playAudioChunk = (base64Audio: string, rate: number = 16000) => {
       try {
         if (!audioContextRef.current) {
@@ -364,6 +363,59 @@ export default function LiveSession({
                   <span className="text-sm text-gray-500">/100</span>
                 </div>
               </div>
+            </div>
+
+            {/* Sidebar Diagnostics */}
+            <div className="col-span-1 flex flex-col gap-6">
+              <Card className="flex-1 rounded-[40px] border-border bg-card shadow-lg flex flex-col overflow-hidden">
+                <CardHeader className="p-6 pb-4 border-b border-linen flex flex-row items-center justify-between">
+                  <CardTitle className="text-xs font-black uppercase tracking-widest text-midnight flex items-center gap-2">
+                    <Terminal size={14} className="text-lavender" />
+                    Mission Logs
+                  </CardTitle>
+                  <Badge
+                    variant="secondary"
+                    className="text-[10px] bg-linen text-midnight border-none"
+                  >
+                    LIVE
+                  </Badge>
+                </CardHeader>
+                <CardContent className="flex-1 p-4 relative">
+                  <div className="absolute inset-0 overflow-y-auto p-6 space-y-4">
+                    {logs.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center h-full text-center space-y-2 opacity-40">
+                        <Activity size={32} />
+                        <p className="text-[10px] font-bold uppercase tracking-widest">
+                          Awaiting telemetry...
+                        </p>
+                      </div>
+                    ) : (
+                      logs.map((log, i) => (
+                        <div key={i} className="space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span
+                              className={`text-[9px] font-black px-1.5 py-0.5 rounded ${log.source === "AI"
+                                ? "bg-lavender/10 text-lavender"
+                                : log.source === "SYSTEM"
+                                  ? "bg-midnight/10 text-midnight"
+                                  : "bg-emerald-100 text-emerald-600"
+                                }`}
+                            >
+                              {log.source}
+                            </span>
+                            <span className="text-[8px] font-mono text-slate font-bold">
+                              {log.time}
+                            </span>
+                          </div>
+                          <p className="text-xs font-medium text-midnight leading-relaxed">
+                            {log.message}
+                          </p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           </div>
         </div>
