@@ -6,13 +6,17 @@ import { UpdateSessionDto } from './dto/update-session.dto';
 import { Session } from './entities/session.entity';
 import { GeminiService } from '../gemini/gemini.service';
 
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
+
 @Injectable()
 export class SessionsService {
   constructor(
     @InjectRepository(Session)
     private sessionsRepository: Repository<Session>,
     private geminiService: GeminiService,
-  ) {}
+    @InjectQueue('analysis') private analysisQueue: Queue,
+  ) { }
 
   create(createSessionDto: CreateSessionDto) {
     const session = this.sessionsRepository.create(createSessionDto);
@@ -74,6 +78,21 @@ export class SessionsService {
       session.analysis = { summary };
     } catch (e) {
       console.error('Failed to generate summary', e);
+    }
+
+    // Trigger advanced issue processing (Screenshots, Scripts, Detailed GitHub Issues)
+    if (session.issues && session.issues.length > 0) {
+      // Need absolute path for the worker
+      const absoluteVideoPath = path.resolve(filepath);
+      await this.analysisQueue.add('process_session_issues', {
+        sessionId: session.id,
+        issues: session.issues || [],
+        videoPath: absoluteVideoPath,
+        transcript: session.transcript || '',
+        logs: session.logs || [], // Dom events if needed for bug repro
+        url: session.mission?.url,
+        sessionStartTime: session.createdAt.getTime()
+      });
     }
 
     return this.sessionsRepository.save(session);

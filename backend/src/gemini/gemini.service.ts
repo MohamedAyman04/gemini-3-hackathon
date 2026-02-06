@@ -48,8 +48,7 @@ export class GeminiService implements OnModuleInit {
     const fullPrompt = promptTemplate
       .replace(/\{\{context\}\}/g, data.context)
       .replace(/\{\{url\}\}/g, data.url)
-      .replace(/\{\{transcript\}\}/g, data.transcript)
-      .replace(/\{\{dom_events\}\}/g, JSON.stringify(data.dom_events, null, 2));
+      .replace(/\{\{transcript\}\}/g, data.transcript);
 
     try {
       this.logger.log('Calling Gemini (Logic Model) for script generation...');
@@ -132,12 +131,9 @@ export class GeminiService implements OnModuleInit {
       URL: {{url}}
       USER TRANSCRIPT: {{transcript}}
       
-      DOM EVENTS DATA:
-      {{dom_events}}
-      
       INSTRUCTIONS:
       1. Write a complete Playwright test using @playwright/test.
-      2. Follow the user's steps exactly as described in the transcript and DOM events.
+      2. Follow the user's steps exactly as described in the transcript.
       3. Use 'expect' to assert that the bug or expected state occurs.
       4. Output ONLY the TypeScript code, no markdown formatting.
     `.trim();
@@ -188,9 +184,6 @@ export class GeminiService implements OnModuleInit {
 
         REPORTED ISSUES (Bugs/Hurdles/Wishes logged by AI during session):
         ${JSON.stringify(issues, null, 2)}
-
-        LOGS (First 50 events):
-        ${JSON.stringify(logs.slice(0, 50), null, 2)}
       `;
 
       try {
