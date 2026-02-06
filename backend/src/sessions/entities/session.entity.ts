@@ -43,7 +43,7 @@ export class Session implements SessionType {
   @Column('jsonb', { nullable: true })
   analysis: any;
 
-  @Column('jsonb', { nullable: true })
+  @Column('text', { nullable: true })
   transcript: string;
 
   @Column('jsonb', { nullable: true, default: [] })

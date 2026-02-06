@@ -24,7 +24,10 @@ export class SessionsService {
   }
 
   findAll() {
-    return this.sessionsRepository.find();
+    return this.sessionsRepository.find({
+      relations: ['mission'],
+      order: { createdAt: 'DESC' },
+    });
   }
 
   findOne(id: string) {

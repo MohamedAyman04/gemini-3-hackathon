@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { Sidebar } from "@/components/layout/Sidebar";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -16,6 +15,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "ibeCheck | Autonomous User Testing",
   description: "AI-powered autonomous user testing agent",
+  icons: {
+    icon: "/vibecheck2.svg",
+  },
 };
 
 export default function RootLayout({
@@ -24,17 +26,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground overflow-hidden`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
         suppressHydrationWarning
       >
-        <div className="flex h-screen w-full">
-          <Sidebar />
-          <main className="flex-1 overflow-auto">
-            <div className="mx-auto max-w-7xl p-8">{children}</div>
-          </main>
-        </div>
+        <div className="min-h-screen w-full">{children}</div>
       </body>
     </html>
   );

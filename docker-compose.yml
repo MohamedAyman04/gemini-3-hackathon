@@ -17,7 +17,7 @@ services:
     image: redis:7
     container_name: vibecheck_redis
     ports:
-      - "6380:6380"
+      - "6379:6379"
     command: redis-server --port 6380
     volumes:
       - redis_data:/data

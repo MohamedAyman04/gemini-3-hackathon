@@ -1,84 +1,75 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('VibeCheck Dashboard Bug Reproduction', () => {
-  test('Reproduce user interactions on dashboard with scrolling', async ({ page }) => {
-    // 1. Navigate to the reported URL
-    await page.goto('http://localhost:3000/');
-    // Wait for the page to be fully loaded, including network requests
-    await page.waitForLoadState('networkidle');
+test('reproduce reported bug from user transcript', async ({ page }) => {
+  await page.goto('http://localhost:3000/');
 
-    // 2. Set the viewport size as reported in the first DOM event
-    await page.setViewportSize({ width: 1869, height: 992 });
+  // The user transcript describes the user seeing "VibeCheck dashboard" and then being asked "How can I help you today?"
+  // It seems like the core of the interaction is about the AI assistant's responses.
+  // The provided DOM events primarily show the initial page load.
+  // Given the transcript is a conversation with an AI, and the DOM events are just the initial page state,
+  // there's no direct DOM event corresponding to the AI's spoken words or the user's implicit understanding.
 
-    // Selectors for the scrollable areas identified from DOM events
-    // Sidebar scrollable content area (id: 30)
-    const sidebarScrollableArea = page.locator('div.flex-1.overflow-y-auto.px-3.py-4');
-    // Main content scrollable area (id: 57)
-    const mainContentScrollableArea = page.locator('main.flex-1.overflow-auto');
+  // The bug or unexpected behavior isn't explicitly stated, but the transcript itself seems to be the output
+  // of an AI assistant, repeating itself ("you're on the VibeCheck dashboard. How can I help you today?")
+  // and then changing its greeting ("Hello! What can I help you with?").
+  // This repetition and change in greeting could be interpreted as a bug in the AI assistant's logic.
 
-    // --- Simulate sidebar scrolling down (based on mouse movements from 1770121912581 to 1770121913082) ---
-    // User moves mouse into the sidebar and scrolls down, indicated by Y-coordinate increase.
-    await sidebarScrollableArea.hover(); // Position mouse over the sidebar content
-    await page.mouse.wheel(0, 200); // Scroll down approximately 200 pixels
-    await page.waitForTimeout(500); // Simulate a brief pause by the user
+  // To simulate this, we'll assert that the page contains the initial dashboard text.
+  // We cannot directly assert the AI's spoken words or a bug in the AI's conversational flow
+  // without more information on how the AI's responses are rendered on the page (e.g., in a chat box).
 
-    // --- Simulate sidebar scrolling up (based on mouse movements from 1770121927434 to 1770121929314) ---
-    // User moves mouse around the bottom of the sidebar, then scrolls up.
-    await sidebarScrollableArea.hover(); // Ensure mouse is still over the sidebar
-    await page.mouse.wheel(0, -200); // Scroll up approximately 200 pixels
-    await page.waitForTimeout(500);
+  // However, we can assert that the user is indeed on the VibeCheck dashboard as the AI states.
+  await expect(page.locator('h1').filter({ hasText: 'Mission Control' })).toBeVisible();
+  await expect(page.locator('a[href="/"]')).toHaveClass(/bg-violet-600\/10/); // "Dashboard" link is active
 
-    // --- Simulate main content interaction (based on mouse movements from 1770121933175 to 1770121934697) ---
-    // User moves mouse to the main content area, then moves around elements within it.
-    await mainContentScrollableArea.hover(); // Position mouse over the main content
-    await page.mouse.wheel(0, 300); // Scroll down the main content area
-    await page.waitForTimeout(500);
+  // Without a chat interface or a way to interact with the AI assistant through the UI based on the DOM events,
+  // we can only infer the visual state of the dashboard.
+  // The transcript suggests a conversational agent is present. Let's look for elements that might represent this.
+  // There are no obvious chat input fields or output display areas in the provided DOM for the AI's transcript.
 
-    // --- Simulate click on main content area (based on events 1770121935098 & 1770121935145) ---
-    // User performs a click within the main content area. This could be to focus it for scrolling
-    // or an incidental click.
-    await page.click('main.flex-1.overflow-auto', { position: { x: 330, y: 772 } });
-    await page.waitForTimeout(100); // Short pause after click
+  // If the bug is that the AI assistant repeats itself or changes its greeting, this Playwright script
+  // would need to interact with a chat input (if one exists) and then assert on the displayed AI responses.
+  // Since there are no explicit DOM events for user interaction *after* the initial load,
+  // and no obvious chat UI elements mentioned in the DOM, we'll focus on the *dashboard itself*
+  // and make an assumption about how the AI assistant might present itself on this page.
 
-    // --- Simulate main content scrolling up (based on mouse movements from 1770121935203) ---
-    await mainContentScrollableArea.hover(); // Ensure mouse is over main content for scrolling
-    await page.mouse.wheel(0, -150); // Scroll up the main content area
-    await page.waitForTimeout(500);
+  // Let's assume the AI's greeting is shown somewhere, even if not explicitly in the provided DOM snapshot.
+  // Given the context is a dashboard, a common pattern is a "welcome" message or a persistent assistant.
+  // Since the user transcript implies an AI is *speaking* to the user, this would typically involve a text display.
 
-    // --- Simulate fast sidebar scrolling up (based on mouse movements from 1770121941854) ---
-    // User moves mouse back to sidebar and scrolls dramatically upwards.
-    await sidebarScrollableArea.hover(); // Position mouse over sidebar
-    await page.mouse.wheel(0, -500); // Scroll quickly towards the top of the sidebar
-    await page.waitForTimeout(500);
+  // Since we don't have direct event data for the AI's responses, and the "bug" is conversational,
+  // we'll primarily assert the dashboard state based on the initial load and the general context.
+  // The repetition in the transcript (e.g., "...you're on the VibeCheck dashboard. How can I help you today?")
+  // and the change in greeting ("Hello! What can I help you with?") indicate a problem with the AI's output.
 
-    // --- Simulate sidebar scrolling down again (based on mouse movements from 1770121942861 to 1770121944382) ---
-    // After scrolling up, user scrolls down again slightly.
-    await sidebarScrollableArea.hover(); // Ensure mouse is over sidebar
-    await page.mouse.wheel(0, 100); // Scroll down a bit
-    await page.waitForTimeout(500);
+  // If we had a specific chat element (e.g., a div with role="log" or a specific ID), we could assert its content.
+  // Lacking that, we can assert for elements related to the "VibeCheck dashboard" to confirm the initial state.
 
-    // Assert that the page state is as expected after all interactions.
-    // Since no specific bug description is provided, a visual regression test is used.
-    // Dynamic elements (like counts, mission titles/URLs) are masked to prevent flakiness.
-    await expect(page).toHaveScreenshot('dashboard-after-interactions.png', {
-      mask: [
-        // Mask the "Active Agents" count
-        page.locator('h3:has-text("12")'),
-        // Mask the "Active Agents" delta
-        page.locator('div.text-xs.text-emerald-400.flex.items-center.gap-1'),
-        // Mask the "Hurdles Detected" count
-        page.locator('h3:has-text("4")'),
-        // Mask the "Hurdles Detected" analysis status
-        page.locator('div.text-xs.text-violet-400.flex.items-center.gap-1'),
-        // Mask the text content and URLs in the "Live Mission Feed"
-        page.locator('div.space-y-1').filter({ hasText: 'Live Mission Feed' }).locator('p.text-sm.font-medium.text-gray-200'),
-        page.locator('div.space-y-1').filter({ hasText: 'Live Mission Feed' }).locator('p.text-xs.text-gray-500'),
-        // Mask the text content and URLs in the "Recent Missions"
-        page.locator('div.space-y-1').filter({ hasText: 'Recent Missions' }).locator('p.text-sm.font-medium.text-gray-200'),
-        page.locator('div.space-y-1').filter({ hasText: 'Recent Missions' }).locator('p.text-xs.text-gray-500'),
-      ],
-      // Adjust the threshold if minor pixel differences are acceptable
-      // threshold: 0.2,
-    });
-  });
+  // The "VibeCheck" title in the sidebar
+  await expect(page.getByText('VibeCheck', { exact: true })).toBeVisible();
+
+  // The "Dashboard" navigation item being active
+  await expect(page.locator('a[href="/"]')).toHaveText('Dashboard');
+  await expect(page.locator('a[href="/"]')).toHaveClass(/bg-violet-600\/10/);
+
+  // The main title of the dashboard
+  await expect(page.getByRole('heading', { name: 'Mission Control' })).toBeVisible();
+
+  // The description of the dashboard
+  await expect(page.getByText('Initialize new autonomous testing sessions and monitor active agents.')).toBeVisible();
+
+  // Without specific selectors for the AI's chat output, directly asserting the bug of repeating phrases is not possible.
+  // The script confirms the user is on the dashboard as the AI states.
+  // If the AI's output were rendered in a visible element, the expectation would look like this:
+  // await expect(page.locator('#ai-chat-output')).toContainText("you're on the VibeCheck dashboard. How can I help you today?");
+  // and then checking for the repetition or the changed greeting.
+
+  // Given the limited DOM events and the nature of the "bug" being in a conversational AI's output,
+  // the script can only verify the initial UI state implied by the AI's first statement.
+  // The actual bug reproduction would require either:
+  // 1. A way to input text to the AI and assert its spoken response (if rendered visually).
+  // 2. A specific element in the DOM where AI responses are displayed, which we don't have identified.
+
+  // Therefore, this test ensures the user is indeed on the VibeCheck dashboard as the initial AI response implies.
+  // The conversational bug itself cannot be reproduced with just the provided DOM events and transcript without more UI context.
 });

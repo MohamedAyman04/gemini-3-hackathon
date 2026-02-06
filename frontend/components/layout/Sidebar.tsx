@@ -32,16 +32,23 @@ export function Sidebar() {
   const emailPrefix = user?.email?.split("@")[0] || "User";
 
   return (
-    <div className="flex h-screen w-64 flex-col border-r border-white/5 bg-slate-950/50 backdrop-blur-xl">
-      <div className="flex h-16 items-center px-6">
-        <div className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center">
-            <PlayCircle className="h-5 w-5 text-white" />
-          </div>
-          <span className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">
-            VibeCheck
+    <div className="flex h-screen w-64 flex-col border-r border-midnight/10 bg-sidebar text-sidebar-foreground shadow-2xl">
+      <div className="flex h-20 items-center bg-sidebar px-6 border-b border-linen/5 mb-2">
+        <Link
+          href="/"
+          className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+        >
+          <Image
+            src="/vibecheck2.svg"
+            alt="VibeCheck"
+            width={32}
+            height={32}
+            style={{ position: "relative", left: "21px", bottom: "1px" }}
+          />
+          <span className="text-xl font-black tracking-tight text-linen">
+            ibeCheck
           </span>
-        </div>
+        </Link>
       </div>
 
       <div className="flex-1 overflow-y-auto px-3 py-4">
@@ -55,16 +62,16 @@ export function Sidebar() {
                 className={cn(
                   "group flex items-center rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
                   isActive
-                    ? "bg-violet-600/10 text-violet-400"
-                    : "text-gray-400 hover:bg-white/5 hover:text-white",
+                    ? "bg-primary text-primary-foreground shadow-lg shadow-black/20"
+                    : "text-slate hover:bg-linen/5 hover:text-linen",
                 )}
               >
                 <item.icon
                   className={cn(
                     "mr-3 h-5 w-5 flex-shrink-0 transition-colors",
                     isActive
-                      ? "text-violet-400"
-                      : "text-gray-500 group-hover:text-white",
+                      ? "text-primary-foreground"
+                      : "text-slate group-hover:text-linen",
                   )}
                   aria-hidden="true"
                 />

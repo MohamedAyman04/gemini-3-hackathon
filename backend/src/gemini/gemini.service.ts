@@ -294,7 +294,9 @@ export class GeminiService implements OnModuleInit {
           this.logger.error('Gemini Live WebSocket Error', error);
         },
         onclose: (event) => {
-          this.logger.warn(`Gemini Live WebSocket Closed: ${event.code} - ${event.reason}`);
+          this.logger.warn(
+            `Gemini Live WebSocket Closed: ${event.code} - ${event.reason}`,
+          );
         },
         onmessage: (message: types.LiveServerMessage) => {
           // Handle Interruption
@@ -344,7 +346,9 @@ export class GeminiService implements OnModuleInit {
           if (parts) {
             parts.forEach((part) => {
               if (part.inlineData?.data) {
-                // this.logger.log(`Received Audio Chunk`); 
+                // this.logger.log(
+                //   `Received Audio Chunk from Gemini: ${part.inlineData.data.length} chars`,
+                // );
                 onAudio(part.inlineData.data);
               }
             });
