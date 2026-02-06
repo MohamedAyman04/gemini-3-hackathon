@@ -7,11 +7,14 @@ import {
   Settings,
   PlayCircle,
   Activity,
+  /* imports - adding LogOut and logout */
 } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
-import { getMe } from "@/lib/api";
+import { getMe, logout } from "@/lib/api";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
@@ -21,13 +24,23 @@ const navigation = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
     getMe()
       .then(setUser)
-      .catch(() => {});
+      .catch(() => { });
   }, []);
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      router.push("/login");
+    } catch (error) {
+      console.error("Logout failed", error);
+    }
+  };
 
   const emailPrefix = user?.email?.split("@")[0] || "User";
 
@@ -83,18 +96,27 @@ export function Sidebar() {
       </div>
 
       <div className="border-t border-linen/5 p-4">
-        <div className="flex items-center gap-3 rounded-xl bg-linen/5 p-3">
-          <div className="h-10 w-10 rounded-full bg-gradient-to-tr from-lavender to-periwinkle flex items-center justify-center text-linen font-black text-sm border-2 border-linen/10">
-            {emailPrefix[0]?.toUpperCase()}
+        <div className="flex items-center justify-between gap-2 rounded-xl bg-linen/5 p-3">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-full bg-gradient-to-tr from-lavender to-periwinkle flex items-center justify-center text-linen font-black text-sm border-2 border-linen/10">
+              {emailPrefix[0]?.toUpperCase()}
+            </div>
+            <div className="overflow-hidden">
+              <p className="truncate text-sm font-bold text-linen capitalize w-24">
+                {emailPrefix}
+              </p>
+              <p className="truncate text-[10px] text-slate font-medium uppercase tracking-widest opacity-60">
+                Pro Account
+              </p>
+            </div>
           </div>
-          <div className="overflow-hidden">
-            <p className="truncate text-sm font-bold text-linen capitalize">
-              {emailPrefix}
-            </p>
-            <p className="truncate text-[10px] text-slate font-medium uppercase tracking-widest opacity-60">
-              Pro Account
-            </p>
-          </div>
+          <button
+            onClick={handleLogout}
+            className="p-2 text-slate hover:text-linen hover:bg-white/10 rounded-lg transition-colors"
+            title="Sign Out"
+          >
+            <LogOut size={16} />
+          </button>
         </div>
       </div>
     </div>

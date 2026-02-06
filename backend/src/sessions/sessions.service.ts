@@ -130,12 +130,31 @@ export class SessionsService {
         .where('id = :id', { id: sessionId })
         .execute();
 
+      // Also add to system logs for unified view
+      await this.appendLogs(sessionId, [{
+        time: new Date().toISOString(),
+        message: `Issue Reported: ${issue.description} (${issue.type})`,
+        source: 'AI'
+      }]);
+
       console.log(`[SessionsService] Append result:`, result);
       return result;
     } catch (error) {
       console.error(`[SessionsService] Failed to append issue:`, error);
       throw error;
     }
+  }
+
+  async appendLogs(sessionId: string, newLogs: any[]) {
+    return this.sessionsRepository
+      .createQueryBuilder()
+      .update(Session)
+      .set({
+        logs: () => `COALESCE(logs, '[]'::jsonb) || :newLogs::jsonb`,
+      })
+      .setParameter('newLogs', JSON.stringify(newLogs))
+      .where('id = :id', { id: sessionId })
+      .execute();
   }
 
   remove(id: string) {
