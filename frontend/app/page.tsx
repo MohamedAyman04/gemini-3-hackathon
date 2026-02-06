@@ -70,7 +70,7 @@ export default function Home() {
             </div>
           </div>
           <p className="text-midnight font-black uppercase tracking-[0.2em] text-xs animate-pulse">
-            Initializing VibeCheck
+            Initializing ibeCheck
           </p>
         </div>
       </div>

@@ -149,7 +149,7 @@ export default function LoginPage() {
         </Card>
 
         <p className="text-center text-sm text-muted-foreground">
-          New to VibeCheck?{" "}
+          New to ibeCheck?{" "}
           <Link
             href="/signup"
             className="text-primary hover:text-lp-400 font-bold transition-colors"

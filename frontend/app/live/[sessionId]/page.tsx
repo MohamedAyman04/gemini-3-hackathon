@@ -94,10 +94,6 @@ export default function LiveSession({
       addLog(data.text, "AI");
     });
 
-    socket.on("system_log", (data: any) => {
-      addLog(data.message, data.source || "SYSTEM");
-    });
-
     const playAudioChunk = (base64Audio: string, rate: number = 16000) => {
       try {
         if (!audioContextRef.current) {
@@ -177,10 +173,7 @@ export default function LiveSession({
     };
   }, [sessionId]);
 
-  const addLog = (
-    message: string,
-    source: "AI" | "USER" | "SYSTEM" | "USER_ACTION",
-  ) => {
+  const addLog = (message: string, source: "AI" | "USER" | "SYSTEM") => {
     setLogs((prev) =>
       [
         ...prev,
@@ -428,14 +421,13 @@ export default function LiveSession({
                         <div key={i} className="space-y-1">
                           <div className="flex items-center justify-between">
                             <span
-                              className={`text-[9px] font-black px-1.5 py-0.5 rounded ${log.source === "AI"
-                                ? "bg-lavender/10 text-lavender"
-                                : log.source === "SYSTEM"
-                                  ? "bg-midnight/10 text-midnight"
-                                  : log.source === "USER_ACTION"
-                                    ? "bg-blue-100 text-blue-600"
+                              className={`text-[9px] font-black px-1.5 py-0.5 rounded ${
+                                log.source === "AI"
+                                  ? "bg-lavender/10 text-lavender"
+                                  : log.source === "SYSTEM"
+                                    ? "bg-midnight/10 text-midnight"
                                     : "bg-emerald-100 text-emerald-600"
-                                }`}
+                              }`}
                             >
                               {log.source}
                             </span>

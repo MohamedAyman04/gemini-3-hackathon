@@ -12,7 +12,7 @@ import type { Response, Request } from 'express';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) { }
+  constructor(private readonly authService: AuthService) {}
 
   @Post('login')
   async login(
@@ -65,11 +65,5 @@ export class AuthController {
       throw new UnauthorizedException();
     }
     return user;
-  }
-
-  @Post('logout')
-  logout(@Res({ passthrough: true }) response: Response) {
-    response.clearCookie('connect.sid');
-    return { success: true };
   }
 }

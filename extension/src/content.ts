@@ -136,58 +136,6 @@ const startRecording = async () => {
     }
 };
 
-// --- User Interaction Tracking ---
-
-const sendUserAction = (action: string, description: string) => {
-    if (extensionAPI) {
-        extensionAPI.runtime.sendMessage({
-            type: 'USER_ACTION',
-            action,
-            description
-        }).catch(() => { }); // Ignore if popup closed
-    }
-};
-
-const setupInteractionListeners = () => {
-    // Click Listener
-    document.addEventListener('click', (e) => {
-        const target = e.target as HTMLElement;
-        const text = target.innerText?.slice(0, 50) || target.getAttribute('aria-label') || target.id || target.tagName;
-        if (text) {
-            sendUserAction('CLICK', `User clicked on "${text}"`);
-        }
-    }, true);
-
-    // URL Change Detection
-    let lastUrl = location.href;
-    const checkUrl = () => {
-        if (location.href !== lastUrl) {
-            lastUrl = location.href;
-            sendUserAction('NAVIGATE', `User navigated to ${lastUrl}`);
-        }
-    };
-
-    // Monkey-patch History API
-    const pushState = history.pushState;
-    history.pushState = function (...args) {
-        const result = pushState.apply(this, args);
-        checkUrl();
-        return result;
-    };
-
-    const replaceState = history.replaceState;
-    history.replaceState = function (...args) {
-        const result = replaceState.apply(this, args);
-        checkUrl();
-        return result;
-    };
-
-    window.addEventListener('popstate', checkUrl);
-    window.addEventListener('hashchange', checkUrl);
-};
-
-setupInteractionListeners();
-
 const getExtensionAPI = () => {
     // @ts-ignore
     return globalThis.chrome || globalThis.browser;

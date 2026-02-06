@@ -12,7 +12,7 @@ import { useMediaRecorder } from "./hooks/useMediaRecorder";
 import { useAuth } from "./hooks/useAuth";
 import { useMissions } from "./hooks/useMissions";
 import { useSocket } from "./hooks/useSocket";
-// import Image from "next/image"; // Removed invalid import
+import Image from "next/image";
 
 const DASHBOARD_URL =
   import.meta.env.VITE_DASHBOARD_URL || "http://localhost:5000";
@@ -293,14 +293,6 @@ function App() {
           socket.emit("rrweb_events", message.events);
           // console.log(`Forwarded ${message.events.length} rrweb events`);
         }
-      } else if (message.type === "USER_ACTION") {
-        if (isRecording && socket?.connected && currentSessionId) {
-          socket.emit("user_action", {
-            sessionId: currentSessionId,
-            action: message.action,
-            description: message.description,
-          });
-        }
       }
       return false;
     };
@@ -408,7 +400,7 @@ function App() {
             style={{ position: "relative", left: "15px", bottom: "2px" }}
           />
           <h1 className="text-4xl font-black tracking-tight text-midnight uppercase">
-            VibeCheck
+            ibeCheck
           </h1>
         </div>
 
@@ -446,7 +438,7 @@ function App() {
         <div className="flex items-center gap-4">
           <div className="flex flex-col">
             <div className="flex items-center flex-row justify-center">
-              <img
+              <Image
                 src="/vibecheck2.svg"
                 alt="Logo"
                 width={48}
@@ -454,7 +446,7 @@ function App() {
                 style={{ position: "relative", left: "15px", bottom: "2px" }}
               />
               <h1 className="text-xl font-black tracking-tight leading-none uppercase text-linen">
-                VibeCheck
+                ibeCheck
               </h1>
             </div>
             <span className="text-[8px] font-bold text-linen/40 tracking-[0.3em] uppercase mt-1">
@@ -479,14 +471,14 @@ function App() {
           )}
           <div
             className={`flex items-center gap-2 text-[10px] font-black px-3 py-1.5 rounded-xl transition-all duration-500 border ${isRecording
-              ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.2)]"
-              : "bg-red-500/10 text-red-400 border-red-500/30"
+                ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.2)]"
+                : "bg-red-500/10 text-red-400 border-red-500/30"
               }`}
           >
             <div
               className={`w-1.5 h-1.5 rounded-full ${isRecording
-                ? "bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.6)]"
-                : "bg-red-400"
+                  ? "bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.6)]"
+                  : "bg-red-400"
                 }`}
             />
             {isRecording ? "ONLINE" : "OFFLINE"}
@@ -798,8 +790,8 @@ function App() {
               >
                 <div
                   className={`max-w-[85%] text-xs p-2 rounded-lg ${msg.source === "ai"
-                    ? "bg-purple-900/30 border border-purple-800/50 text-purple-200 rounded-tl-none"
-                    : "bg-gray-800 border border-gray-700 text-gray-300 rounded-tr-none"
+                      ? "bg-purple-900/30 border border-purple-800/50 text-purple-200 rounded-tl-none"
+                      : "bg-gray-800 border border-gray-700 text-gray-300 rounded-tr-none"
                     }`}
                 >
                   {msg.source === "ai" && (
@@ -817,5 +809,4 @@ function App() {
     </div>
   );
 }
-
 export default App;

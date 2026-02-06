@@ -17,7 +17,7 @@ export default function Loading() {
           </div>
         </div>
         <p className="text-midnight font-black uppercase tracking-[0.2em] text-xs animate-pulse">
-          VibeCheck
+          ibeCheck
         </p>
       </div>
     </div>

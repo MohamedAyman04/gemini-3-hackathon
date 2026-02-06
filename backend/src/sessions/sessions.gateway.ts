@@ -173,15 +173,7 @@ export class SessionsGateway
         console.log(`[SessionsGateway] Issue logged for session ${data.sessionId}:`, issue);
         this.sessionsService.appendIssue(data.sessionId, { ...issue, timestamp: Date.now() })
           .catch(err => console.error(`[SessionsGateway] Error persisting issue:`, err));
-
         this.server.to(data.sessionId).emit('issue_logged', issue);
-
-        // Also emit as a system log for the unified feed
-        this.server.to(data.sessionId).emit('system_log', {
-          time: new Date().toISOString(),
-          message: `Issue Reported: ${issue.description} (${issue.type})`,
-          source: 'AI'
-        });
       },
       {
         url: mission?.url,
@@ -300,27 +292,6 @@ export class SessionsGateway
         );
       }
     }
-  }
-
-  @SubscribeMessage('user_action')
-  async handleUserAction(
-    @MessageBody() data: { sessionId: string; action: string; description: string },
-    @ConnectedSocket() client: Socket,
-  ) {
-    const sessionId = data.sessionId; // Or derive from room if reliable
-    if (!sessionId) return;
-
-    const logEntry = {
-      time: new Date().toISOString(),
-      message: data.description,
-      source: 'USER_ACTION',
-    };
-
-    // Persist to DB logs
-    await this.sessionsService.appendLogs(sessionId, [logEntry]);
-
-    // Broadcast to frontend
-    this.server.to(sessionId).emit('system_log', logEntry);
   }
 
   @SubscribeMessage('rrweb_events')
