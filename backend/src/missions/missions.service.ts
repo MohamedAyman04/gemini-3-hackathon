@@ -11,7 +11,7 @@ export class MissionsService {
   constructor(
     @InjectRepository(Mission)
     private missionsRepository: Repository<Mission>,
-  ) {}
+  ) { }
 
   create(createMissionDto: CreateMissionDto) {
     const data = { ...createMissionDto };
@@ -31,7 +31,10 @@ export class MissionsService {
   }
 
   findOne(id: string) {
-    return this.missionsRepository.findOne({ where: { id } });
+    return this.missionsRepository.findOne({
+      where: { id },
+      relations: ['sessions'],
+    });
   }
 
   update(id: string, updateMissionDto: UpdateMissionDto) {

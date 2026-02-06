@@ -19,8 +19,7 @@ import { Queue } from 'bullmq';
   },
 })
 export class SessionsGateway
-  implements OnGatewayConnection, OnGatewayDisconnect
-{
+  implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
 
@@ -30,7 +29,7 @@ export class SessionsGateway
     private readonly sessionsService: SessionsService,
     private readonly geminiService: GeminiService,
     @InjectQueue('analysis') private analysisQueue: Queue,
-  ) {}
+  ) { }
 
   handleConnection(client: Socket) {
     console.log(`Client connected: ${client.id}`);
@@ -172,7 +171,8 @@ export class SessionsGateway
       },
       (issue) => {
         console.log(`[SessionsGateway] Issue logged for session ${data.sessionId}:`, issue);
-        this.sessionsService.appendIssue(data.sessionId, { ...issue, timestamp: Date.now() });
+        this.sessionsService.appendIssue(data.sessionId, { ...issue, timestamp: Date.now() })
+          .catch(err => console.error(`[SessionsGateway] Error persisting issue:`, err));
         this.server.to(data.sessionId).emit('issue_logged', issue);
       },
       {

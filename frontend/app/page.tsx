@@ -227,242 +227,148 @@ function Dashboard({ missions, router }: { missions: any[]; router: any }) {
                 Mission Control
               </h1>
               <p className="text-muted-foreground">
-                Initialize new autonomous testing sessions and monitor active
-                agents.
+                Manage your autonomous testing missions.
               </p>
             </div>
-            <Button
-              onClick={() => router.push("/missions/new")}
-              className="gap-2"
-            >
-              <Plus className="w-4 h-4" /> New Mission
-            </Button>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-2 space-y-8">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Card className="border-border bg-card hover:shadow-xl transition-shadow">
-                  <CardHeader className="pb-2">
-                    <CardDescription className="font-bold text-muted-foreground">
-                      Active Agents
-                    </CardDescription>
-                    <CardTitle className="text-4xl text-midnight font-black">
-                      {missions.reduce(
-                        (acc, m) =>
-                          acc +
-                          (m.sessions?.filter(
-                            (s: any) => s.status === "RUNNING",
-                          ).length || 0),
-                        0,
-                      )}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-xs text-emerald-600 font-bold flex items-center gap-1">
-                      <Activity className="w-3 h-3" />
-                      <span>Live Now</span>
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card className="border-border bg-card hover:shadow-xl transition-shadow">
-                  <CardHeader className="pb-2">
-                    <CardDescription className="font-bold text-muted-foreground">
-                      Completed Sessions
-                    </CardDescription>
-                    <CardTitle className="text-4xl text-midnight font-black">
-                      {missions.reduce(
-                        (acc, m) =>
-                          acc +
-                          (m.sessions?.filter(
-                            (s: any) => s.status === "COMPLETED",
-                          ).length || 0),
-                        0,
-                      )}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-xs text-lavender font-bold flex items-center gap-1">
-                      <CheckCircle2 className="w-3 h-3" />
-                      <span>Total archived</span>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              <Card className="border-border bg-card">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-midnight">
-                    <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400">
-                      <Activity className="w-5 h-5" />
-                    </div>
-                    Live Mission Feed
-                  </CardTitle>
-                  <CardDescription>
-                    Real-time activity from autonomous agents started via
-                    browser extension.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="px-0">
-                  <div className="space-y-1">
-                    {missions.length === 0 ? (
-                      <div className="px-6 py-8 text-center text-muted-foreground text-sm">
-                        No active missions. Start one from the browser
-                        extension.
-                      </div>
-                    ) : (
-                      missions.map((item, i) => (
-                        <div
-                          key={item.id}
-                          className="flex items-center justify-between px-6 py-4 hover:bg-white/5 transition-colors cursor-pointer border-l-4 border-transparent hover:border-primary"
-                          onClick={() => router.push(`/live/${item.id}`)}
-                        >
-                          <div className="flex items-center gap-4">
-                            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                            <div>
-                              <p className="text-sm font-medium text-foreground">
-                                {item.name}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {item.url}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-6">
-                            <div className="text-right hidden sm:block">
-                              <p className="text-xs text-muted-foreground">
-                                Status
-                              </p>
-                              <p className="text-xs text-emerald-400 font-medium">
-                                Monitoring
-                              </p>
-                            </div>
-                            <Badge variant="secondary">View Live</Badge>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Quick Stats / Recent Activity */}
-            <div className="space-y-6">
-              <Card className="bg-midnight border-midnight shadow-2xl overflow-hidden relative">
-                <div className="absolute top-0 right-0 p-8 opacity-5">
-                  <Activity size={80} className="text-linen" />
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card className="border-border bg-card hover:shadow-xl transition-shadow">
+              <CardHeader className="pb-2">
+                <CardDescription className="font-bold text-muted-foreground">
+                  Active Agents
+                </CardDescription>
+                <CardTitle className="text-4xl text-midnight font-black">
+                  {missions.reduce(
+                    (acc, m) =>
+                      acc +
+                      (m.sessions?.filter(
+                        (s: any) => s.status === "RUNNING",
+                      ).length || 0),
+                    0,
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-xs text-emerald-600 font-bold flex items-center gap-1">
+                  <Activity className="w-3 h-3" />
+                  <span>Live Now</span>
                 </div>
-                <CardHeader>
-                  <CardTitle className="text-linen font-black uppercase tracking-widest text-sm">
-                    System Status
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6 relative z-10">
-                  <div className="flex items-center justify-between p-4 rounded-2xl bg-linen/5 border border-linen/10">
-                    <div className="flex items-center gap-3">
-                      <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_10px_rgba(52,211,153,0.5)]" />
-                      <span className="text-sm font-bold text-linen">
-                        Operational
-                      </span>
-                    </div>
-                    <Badge
-                      variant="success"
-                      className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
-                    >
-                      Online
-                    </Badge>
-                  </div>
-
-                  <div className="space-y-3">
-                    <div className="flex justify-between text-xs font-black uppercase tracking-tighter text-slate">
-                      <span>Daily Quota</span>
-                      <span className="text-linen">
-                        {missions.reduce(
-                          (acc, m) => acc + (m.sessions?.length || 0),
-                          0,
-                        )}
-                        /50 Sessions
-                      </span>
-                    </div>
-                    <div className="h-2 w-full rounded-full bg-white/10 overflow-hidden">
-                      <div
-                        className="h-full rounded-full bg-lavender shadow-[0_0_15px_rgba(144,103,198,0.5)] transition-all duration-1000"
-                        style={{
-                          width: `${Math.min(
-                            (missions.reduce(
-                              (acc, m) => acc + (m.sessions?.length || 0),
-                              0,
-                            ) /
-                              50) *
-                              100,
-                            100,
-                          )}%`,
-                        }}
-                      />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="flex-1 bg-card border-border shadow-sm overflow-hidden">
-                <CardHeader className="p-6 pb-2 border-b border-linen">
-                  <CardTitle className="text-sm font-black uppercase tracking-widest text-midnight">
-                    Recent Missions
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="px-0 py-2">
-                  <div className="space-y-1">
-                    {missions.length === 0 ? (
-                      <div className="px-6 py-12 text-center text-muted-foreground text-sm font-medium">
-                        No missions found.
-                      </div>
-                    ) : (
-                      missions.slice(0, 5).map((item, i) => (
-                        <div
-                          key={item.id}
-                          className="flex items-center justify-between px-6 py-4 hover:bg-linen/50 transition-colors cursor-pointer border-l-4 border-transparent hover:border-lavender"
-                          onClick={() => router.push(`/live/${item.id}`)}
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="p-2 bg-emerald-50 rounded-lg">
-                              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                            </div>
-                            <div>
-                              <p className="text-sm font-bold text-midnight truncate max-w-[140px]">
-                                {item.name}
-                              </p>
-                              <p className="text-[10px] text-muted-foreground font-medium truncate max-w-[140px]">
-                                {item.url.replace(/^https?:\/\//, "")}
-                              </p>
-                            </div>
-                          </div>
-                          <Badge
-                            variant="secondary"
-                            className="bg-linen text-midnight border-none text-[10px] font-bold"
-                          >
-                            Active
-                          </Badge>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </CardContent>
-                <CardFooter className="p-4 bg-linen/20">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="w-full text-xs font-black uppercase tracking-widest text-lavender hover:bg-lavender/5"
-                    onClick={() => router.push("/sessions")}
-                  >
-                    View All History <ArrowRight className="ml-2 w-3 h-3" />
-                  </Button>
-                </CardFooter>
-              </Card>
-            </div>
+              </CardContent>
+            </Card>
+            <Card className="border-border bg-card hover:shadow-xl transition-shadow">
+              <CardHeader className="pb-2">
+                <CardDescription className="font-bold text-muted-foreground">
+                  Completed Sessions
+                </CardDescription>
+                <CardTitle className="text-4xl text-midnight font-black">
+                  {missions.reduce(
+                    (acc, m) =>
+                      acc +
+                      (m.sessions?.filter(
+                        (s: any) => s.status === "COMPLETED",
+                      ).length || 0),
+                    0,
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-xs text-lavender font-bold flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3" />
+                  <span>Total archived</span>
+                </div>
+              </CardContent>
+            </Card>
           </div>
+
+          {/* Main Content Area */}
+          <Card className="border-border bg-card">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-7">
+              <div className="space-y-1">
+                <CardTitle className="flex items-center gap-2 text-midnight text-xl">
+                  <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                    <Target className="w-5 h-5" />
+                  </div>
+                  Your Active Missions
+                </CardTitle>
+                <CardDescription>
+                  Manage and monitor your defined testing missions.
+                </CardDescription>
+              </div>
+              <Button
+                onClick={() => router.push("/missions/new")}
+                className="gap-2"
+              >
+                <Plus className="w-4 h-4" /> New Mission
+              </Button>
+            </CardHeader>
+            <CardContent className="px-0">
+              <div className="space-y-1">
+                {missions.length === 0 ? (
+                  <div className="px-6 py-12 text-center text-muted-foreground text-sm flex flex-col items-center gap-4">
+                    <p>No active missions found.</p>
+                    <Button variant="outline" onClick={() => router.push("/missions/new")}>
+                      Create your first mission
+                    </Button>
+                  </div>
+                ) : (
+                  missions.map((item, i) => (
+                    <div
+                      key={item.id}
+                      className="flex items-center justify-between px-6 py-4 hover:bg-white/5 transition-colors cursor-pointer border-l-4 border-transparent hover:border-primary"
+                      onClick={() => router.push(`/missions/${item.id}`)}
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                          <Globe className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <p className="text-base font-bold text-foreground">
+                            {item.name}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {item.url}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-6">
+                        <div className="text-right hidden sm:block">
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <StackIcon />
+                            <span>{item.sessions?.length || 0} Sessions</span>
+                          </div>
+                        </div>
+                        <ArrowRight className="w-4 h-4 text-muted-foreground" />
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </main>
     </div>
+  );
+}
+
+function StackIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="m2 10 10-5 10 5-10 5z" />
+      <path d="m2 14 10 5 10-5" />
+      <path d="m2 18 10 5 10-5" />
+    </svg>
   );
 }

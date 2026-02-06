@@ -31,6 +31,16 @@ export async function getMissions() {
   return response.json();
 }
 
+export async function getMission(id: string) {
+  const response = await fetch(`${API_BASE_URL}/missions/${id}`, {
+    credentials: "include",
+  });
+  if (!response.ok) {
+    throw new Error("Failed to fetch mission");
+  }
+  return response.json();
+}
+
 export async function createSession(missionId: string) {
   const response = await fetch(`${API_BASE_URL}/sessions`, {
     method: "POST",
