@@ -28,13 +28,8 @@ import {
   CardTitle,
 } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-<<<<<<< HEAD
-import { createMission, createSession, getMissions, getMe } from "@/lib/api";
-import Image from "next/image";
-=======
 import { getMissions, getMe } from "@/lib/api";
 import Link from "next/link";
->>>>>>> 947f63253b1bbc49298b199ab86c57842ff8fb1e
 
 export default function Home() {
   const router = useRouter();
@@ -75,11 +70,7 @@ export default function Home() {
             </div>
           </div>
           <p className="text-midnight font-black uppercase tracking-[0.2em] text-xs animate-pulse">
-<<<<<<< HEAD
             Initializing VibeCheck
-=======
-            Initializing ibeCheck
->>>>>>> 947f63253b1bbc49298b199ab86c57842ff8fb1e
           </p>
         </div>
       </div>

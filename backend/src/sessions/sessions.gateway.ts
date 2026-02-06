@@ -171,17 +171,8 @@ export class SessionsGateway
       },
       (issue) => {
         console.log(`[SessionsGateway] Issue logged for session ${data.sessionId}:`, issue);
-<<<<<<< HEAD
-<<<<<<< Updated upstream
-        this.sessionsService.appendIssue(data.sessionId, { ...issue, timestamp: Date.now() });
-=======
         this.sessionsService.appendIssue(data.sessionId, { ...issue, timestamp: Date.now() })
           .catch(err => console.error(`[SessionsGateway] Error persisting issue:`, err));
->>>>>>> Stashed changes
-=======
-        this.sessionsService.appendIssue(data.sessionId, { ...issue, timestamp: Date.now() })
-          .catch(err => console.error(`[SessionsGateway] Error persisting issue:`, err));
->>>>>>> 947f63253b1bbc49298b199ab86c57842ff8fb1e
         this.server.to(data.sessionId).emit('issue_logged', issue);
       },
       {
