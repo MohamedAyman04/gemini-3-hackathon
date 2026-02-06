@@ -25,7 +25,7 @@ sequenceDiagram
     Ext->>Ext: Buffers `rrweb` DOM Events (Last 2 mins)
     Ext->>Ext: Buffers High-Res Video (Last 2 mins)
     Ext->>BE: Streams Audio (Continuous)
-    Ext->>BE: Streams Low-FPS Screenshots (1 FPS)
+    Ext->>BE: Streams Low-FPS Screen Frames (1 FPS)
     
     Note over BE, Gem: Phase 3: Analysis (Realtime)
     BE->>Gem: Pipes Audio + Screenshots
@@ -61,9 +61,9 @@ To maximize speed, we split the project into two parallel tracks.
 
 2.  **The "Recorder" Engine**
     *   **Context Capture**: Implement `rrweb` circular buffer (keep last ~5000 events).
-    *   **Visual Capture**: Implement `MediaRecorder` logic.
-        *   **Stream A (AI)**: Low FPS (or periodic screenshots) canvas extraction.
-        *   **Stream B (Evidence)**: High Quality video buffer.
+    *   **Visual Capture**: Implement `MediaRecorder` logic (Screen Share).
+        *   **Stream A (AI)**: Low FPS canvas extraction (for Vision).
+        *   **Stream B (Evidence)**: High Quality Video buffer (for Human Review).
     
 3.  **Real-time Interaction**
     *   Setup `socket.io-client` for bi-directional audio/command streaming.

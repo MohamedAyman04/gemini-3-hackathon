@@ -9,7 +9,10 @@ export class GeminiService implements OnModuleInit {
   private readonly logger = new Logger(GeminiService.name);
   private apiKey: string | undefined;
   private genAI: types.GoogleGenAI;
-  private LIVE_MODEL = 'gemini-2.0-flash-exp';
+  // Offline/Logic Model
+  private LOGIC_MODEL = 'gemini-3-flash-preview';
+  // Live Streaming Model (Audio/Multimodal)
+  private LIVE_MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
 
   constructor(private configService: ConfigService) {
     this.apiKey = this.configService.get<string>('GEMINI_API_KEY');
@@ -19,7 +22,9 @@ export class GeminiService implements OnModuleInit {
       this.logger.error(
         'GEMINI_API_KEY environment variable is not set. Please set it before using Gemini features.',
       );
-      throw new Error('gemini-2.5-flash-native-audio-preview-12-2025');
+      throw new Error(
+        'GEMINI_API_KEY environment variable is not set. Please set it before using Gemini features.',
+      );
     }
 
     this.genAI = new types.GoogleGenAI({
@@ -47,21 +52,21 @@ export class GeminiService implements OnModuleInit {
       .replace(/\{\{dom_events\}\}/g, JSON.stringify(data.dom_events, null, 2));
 
     try {
-      this.logger.log('Calling Gemini for script generation...');
+      this.logger.log('Calling Gemini (Logic Model) for script generation...');
 
       const response = await this.genAI.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: this.LOGIC_MODEL,
         contents: [{ role: 'user', parts: [{ text: fullPrompt }] }],
       });
 
       return (response.text || '').replace(/```typescript|```/g, '').trim();
     } catch (error) {
       this.logger.error('Gemini Script Generation failed', error);
-      // Fallback to 2.0 if 1.5 is 404
+      // Fallback
       if (error.status === 404) {
         try {
           const response = await this.genAI.models.generateContent({
-            model: 'gemini-2.5-flash',
+            model: 'gemini-2.0-flash',
             contents: [{ role: 'user', parts: [{ text: fullPrompt }] }],
           });
           return (response.text || '').replace(/```typescript|```/g, '').trim();
@@ -141,7 +146,7 @@ export class GeminiService implements OnModuleInit {
   async analyzeImage(imageBuffer: Buffer, prompt: string): Promise<string> {
     try {
       const response = await this.genAI.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: this.LOGIC_MODEL,
         contents: [
           {
             role: 'user',
@@ -159,26 +164,6 @@ export class GeminiService implements OnModuleInit {
       });
       return response.text || '';
     } catch (error) {
-      if (error.status === 404 || error.status === 429) {
-        const response = await this.genAI.models.generateContent({
-          model: 'gemini-2.5-flash',
-          contents: [
-            {
-              role: 'user',
-              parts: [
-                { text: prompt },
-                {
-                  inlineData: {
-                    data: imageBuffer.toString('base64'),
-                    mimeType: 'image/jpeg',
-                  },
-                },
-              ],
-            },
-          ],
-        });
-        return response.text || '';
-      }
       this.logger.error('Image analysis failed', error);
       throw error;
     }
@@ -187,6 +172,7 @@ export class GeminiService implements OnModuleInit {
   async generateSessionSummary(
     transcript: string,
     logs: any[],
+    issues: any[] = [],
   ): Promise<string> {
     try {
       const prompt = `
@@ -200,20 +186,23 @@ export class GeminiService implements OnModuleInit {
         TRANSCRIPT:
         ${transcript || 'No transcript available.'}
 
+        REPORTED ISSUES (Bugs/Hurdles/Wishes logged by AI during session):
+        ${JSON.stringify(issues, null, 2)}
+
         LOGS (First 50 events):
         ${JSON.stringify(logs.slice(0, 50), null, 2)}
       `;
 
       try {
         const response = await this.genAI.models.generateContent({
-          model: 'gemini-2.5-flash',
+          model: this.LOGIC_MODEL,
           contents: [{ role: 'user', parts: [{ text: prompt }] }],
         });
         return response.text || 'No summary generated.';
       } catch (error) {
         if (error.status === 404 || error.status === 429) {
           const response = await this.genAI.models.generateContent({
-            model: 'gemini-2.5-flash',
+            model: 'gemini-2.0-flash',
             contents: [{ role: 'user', parts: [{ text: prompt }] }],
           });
           return response.text || 'No summary generated.';
@@ -234,21 +223,62 @@ export class GeminiService implements OnModuleInit {
     onAudio: (audio: string) => void,
     onIntervention: (trigger: string) => void,
     onText: (text: string, source: string) => void,
+    onLogIssue: (issue: { type: string; description: string }) => void,
     missionContext: { url?: string; context?: string } = {},
   ) {
     this.logger.log(`Creating Live Session for ${sessionId}`);
 
     const systemInstruction = `
-    You are an AI assistant helping with: ${missionContext.context}
+    You are VibeCheck, an expert AI User Researcher participating in a live user testing session.
+    Your goal is to observe the user, listen to their feedback, and DOCUMENT every issue they encounter using the 'log_issue' tool.
     
-    GUIDELINES:
-    - Be concise with all your replies.
-    - The user is a software tester and will report any bugs or hurdles to you. 
-    - You must confirm with a short reply that you have taken note of the bug/hurdle so it is recorded in your transcript.
-    - The format of the reply should contain the current page, the element the user is frustrated with and the reason concisely.
-    - DO NOT use markdown formatting (like **bold** or *italics*) in your response. Output plain text only.
-    - You are listening to the tester and viewing their screen as they test.
+    CONTEXT:
+    Mission: ${missionContext.context}
+    Target URL: ${missionContext.url}
+
+    BEHAVIOR:
+    1.  **Active Listening**: Listen for signs of frustration ("Ugh", "It's not working") or explicit reports ("Start recording a bug").
+    2.  **Proactive Documentation**: 
+        - When the user describes a problem, IMMEDIATELY call the \`log_issue\` function.
+        - Classify it as:
+          - 'bug': Something is broken or throwing an error.
+          - 'hurdle': Not broken, but confusing or hard to use.
+          - 'wish': A feature request or suggestion.
+    3.  **Concise Interaction**:
+        - Keep your voice responses short and conversational. 
+        - After logging an issue, confirm to the user: "Got it, I've logged that bug."
+        - Do not act like a generic assistant. You are a researcher.
+
+    TOOLS:
+    - You have a tool \`log_issue\`. USE IT FREQUENTLY. 
+    - Do not just write the bug in the transcript. You must call the tool.
     `.trim();
+
+    const tools = [
+      {
+        functionDeclarations: [
+          {
+            name: 'log_issue',
+            description: 'Logs a user-reported bug, hurdle, or wish during the testing session.',
+            parameters: {
+              type: types.Type.OBJECT,
+              properties: {
+                type: {
+                  type: types.Type.STRING,
+                  description: 'The type of issue.',
+                  enum: ['bug', 'hurdle', 'wish'],
+                },
+                description: {
+                  type: types.Type.STRING,
+                  description: 'A concise description of the issue or feedback.',
+                },
+              },
+              required: ['type', 'description'],
+            },
+          },
+        ],
+      },
+    ];
 
     // Using the SDK helper to match your Hono logic
     const session = await this.genAI.live.connect({
@@ -261,7 +291,7 @@ export class GeminiService implements OnModuleInit {
         speechConfig: {
           voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Zephyr' } },
         },
-        tools: [{ googleSearch: {} }],
+        tools: tools,
       },
       callbacks: {
         onopen: () => {
@@ -297,19 +327,36 @@ export class GeminiService implements OnModuleInit {
             }
           }
 
+          // Handle Tool Call (Function Calling)
+          if (message.toolCall) {
+            const calls = message.toolCall.functionCalls;
+            if (calls) {
+              calls.forEach((call) => {
+                if (call.name === 'log_issue') {
+                  const args = call.args as any;
+                  this.logger.log(`Tool Call: log_issue [${args.type}] ${args.description}`);
+                  onLogIssue({
+                    type: args.type,
+                    description: args.description,
+                  });
+
+                  // We *should* technically rely with toolResponse, but currently the SDK/Live API 
+                  // might be okay with just performing the side effect if we don't need the model to "read" the result immediately in the audio loop.
+                  // For now, we perform the side effect.
+                }
+              });
+            }
+          }
+
           // Handle Audio -> onAudio
           const parts = message.serverContent?.modelTurn?.parts;
           if (parts) {
             parts.forEach((part) => {
               if (part.inlineData?.data) {
-                this.logger.log(
-                  `Received Audio Chunk from Gemini: ${part.inlineData.data.length} chars`,
-                );
+                // this.logger.log(
+                //   `Received Audio Chunk from Gemini: ${part.inlineData.data.length} chars`,
+                // );
                 onAudio(part.inlineData.data);
-              }
-              // Handle specific triggers -> onIntervention
-              if (part.text && part.text.includes('REPORT_BUG')) {
-                onIntervention('REPORT_BUG');
               }
             });
           }

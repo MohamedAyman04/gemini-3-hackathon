@@ -6,8 +6,6 @@ import {
   Activity,
   Bug,
   LogIn,
-  Video,
-  VideoOff,
   Target,
 } from "lucide-react";
 import { useMediaRecorder } from "./hooks/useMediaRecorder";
@@ -37,17 +35,12 @@ function App() {
     stopRecording,
     getRecordedBlob,
     toggleAudio,
-    toggleVideo,
     isAudioEnabled,
-    isVideoEnabled,
     audioData,
     error,
     devices,
     selectedAudioId,
     setSelectedAudioId,
-    selectedVideoId,
-    setSelectedVideoId,
-    stream,
     checkPermissions,
     permissionError,
     prepareStream,
@@ -66,8 +59,6 @@ function App() {
   const [newMissionName, setNewMissionName] = useState("");
   const [newMissionContext, setNewMissionContext] = useState("");
 
-  const videoRef = useRef<HTMLVideoElement>(null);
-
   // Audio Playback State
   const audioContextRef = useRef<AudioContext | null>(null);
   const nextStartTimeRef = useRef<number>(0);
@@ -77,12 +68,6 @@ function App() {
       setSelectedMissionId(missions[0].id);
     }
   }, [missions, selectedMissionId]);
-
-  useEffect(() => {
-    if (videoRef.current && stream) {
-      videoRef.current.srcObject = stream;
-    }
-  }, [stream, isVideoEnabled]);
 
   // Audio Player Loop
   useEffect(() => {
@@ -485,18 +470,16 @@ function App() {
             </button>
           )}
           <div
-            className={`flex items-center gap-2 text-[10px] font-black px-3 py-1.5 rounded-xl transition-all duration-500 border ${
-              isRecording
+            className={`flex items-center gap-2 text-[10px] font-black px-3 py-1.5 rounded-xl transition-all duration-500 border ${isRecording
                 ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.2)]"
                 : "bg-red-500/10 text-red-400 border-red-500/30"
-            }`}
+              }`}
           >
             <div
-              className={`w-1.5 h-1.5 rounded-full ${
-                isRecording
+              className={`w-1.5 h-1.5 rounded-full ${isRecording
                   ? "bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.6)]"
                   : "bg-red-400"
-              }`}
+                }`}
             />
             {isRecording ? "ONLINE" : "OFFLINE"}
           </div>
@@ -779,66 +762,6 @@ function App() {
                   )}
                 </div>
               </div>
-
-              {/* Camera Selection */}
-              <div className="flex items-center gap-2 w-full">
-                <button
-                  onClick={toggleVideo}
-                  className={`p-4 rounded-2xl transition-colors flex-shrink-0 border shadow-sm ${!isVideoEnabled ? "bg-red-500/10 text-red-500 hover:bg-red-500/20 border-red-500/50" : "bg-midnight text-linen hover:text-white border-linen/20 hover:border-linen/40"}`}
-                >
-                  {!isVideoEnabled ? (
-                    <VideoOff className="w-6 h-6" />
-                  ) : (
-                    <Video className="w-6 h-6" />
-                  )}
-                </button>
-
-                <div className="relative flex-1">
-                  <select
-                    value={selectedVideoId}
-                    onChange={(e) => setSelectedVideoId(e.target.value)}
-                    className="w-full bg-midnight text-sm text-linen rounded-2xl border border-linen/20 px-4 py-4 focus:outline-none focus:border-lavender appearance-none truncate disabled:opacity-50 font-bold shadow-lg"
-                  >
-                    {devices
-                      .filter((d) => d.kind === "videoinput")
-                      .map((device) => (
-                        <option
-                          key={device.deviceId}
-                          value={device.deviceId}
-                          className="bg-midnight"
-                        >
-                          {device.label ||
-                            `Camera ${device.deviceId.slice(0, 5)}...`}
-                        </option>
-                      ))}
-                  </select>
-                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
-                    <svg
-                      className="fill-current h-4 w-4"
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 20 20"
-                    >
-                      <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-
-              {/* Video Preview */}
-              {isVideoEnabled && isRecording && (
-                <div className="w-full aspect-video bg-black rounded-lg overflow-hidden border border-gray-800 relative group">
-                  <video
-                    ref={videoRef}
-                    autoPlay
-                    muted
-                    playsInline
-                    className="w-full h-full object-cover transform scale-x-[-1]"
-                  />
-                  <div className="absolute bottom-2 left-2 bg-black/50 px-2 py-1 rounded text-[10px] text-white">
-                    Camera Preview
-                  </div>
-                </div>
-              )}
             </div>
           </>
         )}
@@ -866,11 +789,10 @@ function App() {
                 className={`flex ${msg.source === "ai" ? "justify-start" : "justify-end"}`}
               >
                 <div
-                  className={`max-w-[85%] text-xs p-2 rounded-lg ${
-                    msg.source === "ai"
+                  className={`max-w-[85%] text-xs p-2 rounded-lg ${msg.source === "ai"
                       ? "bg-purple-900/30 border border-purple-800/50 text-purple-200 rounded-tl-none"
                       : "bg-gray-800 border border-gray-700 text-gray-300 rounded-tr-none"
-                  }`}
+                    }`}
                 >
                   {msg.source === "ai" && (
                     <span className="block text-[10px] text-purple-400 font-bold mb-1">

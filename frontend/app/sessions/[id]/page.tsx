@@ -98,9 +98,7 @@ export default function SessionDetails() {
                 </span>
               </div>
             </div>
-            <Badge
-              variant={session.status === "COMPLETED" ? "success" : "default"}
-            >
+            <Badge variant={session.status === "COMPLETED" ? "success" : "default"}>
               {session.status}
             </Badge>
           </div>
@@ -145,6 +143,53 @@ export default function SessionDetails() {
                       <span className="text-gray-500 italic">
                         No transcript available.
                       </span>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Reported Issues */}
+              <Card className="border-red-500/20 bg-red-900/10">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-red-400">
+                    <Activity className="w-5 h-5" />
+                    Reported Issues
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {session.issues && session.issues.length > 0 ? (
+                      session.issues.map((issue: any, i: number) => (
+                        <div
+                          key={i}
+                          className="flex items-start gap-3 bg-black/40 p-3 rounded-lg border border-white/5"
+                        >
+                          <Badge
+                            variant={
+                              issue.type === "bug"
+                                ? "destructive"
+                                : issue.type === "hurdle"
+                                  ? "warning"
+                                  : "default"
+                            }
+                            className="capitalize shrink-0 mt-1"
+                          >
+                            {issue.type}
+                          </Badge>
+                          <div className="space-y-1">
+                            <p className="text-gray-200 text-sm">
+                              {issue.description}
+                            </p>
+                            <p className="text-xs text-gray-500 font-mono">
+                              {new Date(issue.timestamp).toLocaleTimeString()}
+                            </p>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-gray-500 italic">
+                        No issues reported during this session.
+                      </p>
                     )}
                   </div>
                 </CardContent>

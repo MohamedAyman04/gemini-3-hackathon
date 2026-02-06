@@ -9,45 +9,34 @@ export interface UseMediaRecorderReturn {
     stopRecording: () => void;
     getRecordedBlob: () => Blob;
     toggleAudio: () => void;
-    toggleVideo: () => void;
     isAudioEnabled: boolean;
-    isVideoEnabled: boolean;
     audioData: Uint8Array;
     analyser: AnalyserNode | null;
     error: string | null;
     devices: MediaDeviceInfo[];
     selectedAudioId: string;
     setSelectedAudioId: (id: string) => void;
-    selectedVideoId: string;
-    setSelectedVideoId: (id: string) => void;
     checkPermissions: () => Promise<void>;
     permissionError: boolean;
-    stream: MediaStream | null;
     prepareStream: () => Promise<void>;
 }
 
 export const useMediaRecorder = (): UseMediaRecorderReturn => {
     const [isRecording, setIsRecording] = useState(false);
     const [isAudioEnabled, setIsAudioEnabled] = useState(true);
-    const [isVideoEnabled, setIsVideoEnabled] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [audioData, setAudioData] = useState<Uint8Array>(new Uint8Array(0));
 
     const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
     const [selectedAudioId, setSelectedAudioId] = useState<string>('');
-    const [selectedVideoId, setSelectedVideoId] = useState<string>('');
 
-    // We use State for the UI to be reactive (preview video)
-    const [stream, setStream] = useState<MediaStream | null>(null);
-
-    // We use Ref for internal logic (analyser, track modification) to avoid closure stale state
+    // Stream State
     const streamRef = useRef<MediaStream | null>(null);
 
     const audioContextRef = useRef<AudioContext | null>(null);
     const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
     const analyserRef = useRef<AnalyserNode | null>(null);
     const prevAudioId = useRef(selectedAudioId);
-    const prevVideoId = useRef(selectedVideoId);
 
     const animationFrameRef = useRef<number | null>(null);
 
@@ -56,11 +45,8 @@ export const useMediaRecorder = (): UseMediaRecorderReturn => {
     const checkPermissions = useCallback(async () => {
         try {
             console.log("Requesting microphone permission...");
-            // Try Audio ONLY first, as this might be what "used to work"
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-            // If audio works, we can try video or just treat it as success for now
-            // stream.getTracks().forEach(t => t.stop()); // Don't stop yet if we want to enumerate? No, enumerate works without stream.
             stream.getTracks().forEach(t => t.stop());
             setPermissionError(false);
             console.log("Microphone permission granted.");
@@ -72,20 +58,13 @@ export const useMediaRecorder = (): UseMediaRecorderReturn => {
             if (audioDevices.length > 0 && !selectedAudioId) {
                 setSelectedAudioId(audioDevices[0].deviceId);
             }
-
-            const videoDevices = allDevices.filter(d => d.kind === 'videoinput');
-            if (videoDevices.length > 0 && !selectedVideoId) {
-                setSelectedVideoId(videoDevices[0].deviceId);
-            }
         } catch (err: any) {
             console.error("Failed to get permissions:", err);
-            // Only show the "Open in Tab" button if it's genuinely a permission/security issue or the specific Firefox DOMException
             if (err.name === 'NotAllowedError' || err.name === 'SecurityError' || err.message?.includes('The object can not be found')) {
                 setPermissionError(true);
             }
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [selectedAudioId]);
 
     useEffect(() => {
         checkPermissions();
@@ -95,7 +74,6 @@ export const useMediaRecorder = (): UseMediaRecorderReturn => {
         if (streamRef.current) {
             streamRef.current.getTracks().forEach(track => track.stop());
             streamRef.current = null;
-            setStream(null);
         }
         if (sourceRef.current) {
             sourceRef.current.disconnect();
@@ -158,25 +136,21 @@ export const useMediaRecorder = (): UseMediaRecorderReturn => {
         }
     };
 
-    const getMediaStream = async (audioId: string | boolean, videoId: string | boolean) => {
+    const getMediaStream = async (audioId: string | boolean) => {
         const audioConstraints = typeof audioId === 'string'
             ? (audioId ? { deviceId: { exact: audioId } } : true)
             : audioId;
 
-        const videoConstraints = typeof videoId === 'string'
-            ? (videoId ? { deviceId: { exact: videoId } } : true)
-            : videoId;
-
         return await navigator.mediaDevices.getUserMedia({
             audio: audioConstraints,
-            video: videoConstraints
+            video: false
         });
     }
 
-    const updateStreamTrack = (kind: 'audio' | 'video', newTrack: MediaStreamTrack | null) => {
+    const updateStreamTrack = (newTrack: MediaStreamTrack | null) => {
         if (!streamRef.current) return;
 
-        const oldTracks = kind === 'audio' ? streamRef.current.getAudioTracks() : streamRef.current.getVideoTracks();
+        const oldTracks = streamRef.current.getAudioTracks();
         oldTracks.forEach(t => {
             t.stop();
             streamRef.current?.removeTrack(t);
@@ -185,24 +159,11 @@ export const useMediaRecorder = (): UseMediaRecorderReturn => {
         if (newTrack) {
             streamRef.current.addTrack(newTrack);
         }
-
-        // Important: Start transition by updating state to trigger re-render if needed (though ref is mutated in place)
-        // Since mutation happens in place, React state 'streamRef.current' is same object. 
-        // We might need to clone it to trigger React? 
-        // But for <video preview>, as long as track is added, does it update?
-        // Safer: setStream(new MediaStream(streamRef.current.getTracks()));
-        // Or just let it be if user says toggle works. 
-        // For now, let's keep mutation, but maybe re-set state to be safe.
-        setStream(new MediaStream(streamRef.current.getTracks()));
     };
 
     const processorRef = useRef<ScriptProcessorNode | null>(null);
     const videoIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
-
-    // Lazy load Utils to avoid issues if files missing during refactor (though we just created them)
-    // Actually better to import them at top. Added imports at top of file.
-
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const chunksRef = useRef<Blob[]>([]);
 
@@ -232,7 +193,6 @@ export const useMediaRecorder = (): UseMediaRecorderReturn => {
 
             const combinedStream = new MediaStream(tracks);
             streamRef.current = combinedStream;
-            setStream(combinedStream);
 
             // Setup Analyzer immediately for UI feedback
             connectStreamToAnalyser(combinedStream);
@@ -245,7 +205,6 @@ export const useMediaRecorder = (): UseMediaRecorderReturn => {
 
         } catch (err: any) {
             console.error("Failed to prepare stream:", err);
-            // Verify this works...
             if (err.name === 'NotAllowedError') {
                 setError('Permission denied for Screen/Mic.');
             } else {
@@ -294,20 +253,15 @@ export const useMediaRecorder = (): UseMediaRecorderReturn => {
                 mimeType = 'video/webm'; // Fallback
             }
 
-            // Final check
             if (!MediaRecorder.isTypeSupported(mimeType)) {
-                // Last resort for standard recording
                 mimeType = hasVideo ? 'video/mp4' : 'audio/mp4';
-                // Note: mp4 might not be supported in all MediaRecorder implementations, but let's try standard types if webm fails.
                 if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = ''; // Let browser choose default
             }
 
-
             console.log("Starting MediaRecorder with mimeType:", mimeType);
 
-            // SYNC REFS to prevent redundant switching in useEffect
+            // SYNC REFS
             prevAudioId.current = selectedAudioId;
-            prevVideoId.current = selectedVideoId;
 
             const options = mimeType ? { mimeType } : undefined;
             const mediaRecorder = new MediaRecorder(newStream, options);
@@ -330,54 +284,19 @@ export const useMediaRecorder = (): UseMediaRecorderReturn => {
                 const ctx = audioContextRef.current;
 
                 if (ctx.state === 'suspended') {
-                    console.log("AudioContext suspended, resuming...");
                     await ctx.resume();
-                }
-                console.log("AudioContext State:", ctx.state, "SampleRate:", ctx.sampleRate);
-
-                // DEBUG AUDIO TRACKS
-                const audioTracks = newStream.getAudioTracks();
-                console.log("Audio Tracks:", audioTracks.map(t => ({
-                    label: t.label,
-                    enabled: t.enabled,
-                    muted: t.muted,
-                    readyState: t.readyState,
-                    id: t.id
-                })));
-
-                if (audioTracks.length === 0) {
-                    console.error("NO AUDIO TRACKS FOUND IN STREAM!");
                 }
 
                 const processSource = ctx.createMediaStreamSource(newStream);
-
                 const processor = ctx.createScriptProcessor(4096, 1, 1);
                 processorRef.current = processor;
 
-                let callbackCount = 0;
-
                 processor.onaudioprocess = (e) => {
-                    // if (!socket.connected) return; // Allow logging even if disconnected for debug
-                    callbackCount++;
                     const inputData = e.inputBuffer.getChannelData(0);
 
-                    // Always log the first 5 callbacks to prove connectivity
-                    if (callbackCount <= 5) {
-                        let rawSum = 0;
-                        for (let i = 0; i < Math.min(100, inputData.length); i++) rawSum += Math.abs(inputData[i]);
-                        console.log(`onaudioprocess #${callbackCount}: rawSum (first 100) = ${rawSum}`);
-                    }
-
-                    // AMPLIFY VOLUME (10x Gain) because input was extremely quiet (0.003 avg)
+                    // AMPLIFY VOLUME (10x Gain)
                     for (let i = 0; i < inputData.length; i++) {
                         inputData[i] *= 2.0;
-                    }
-
-                    // Simple silence detection for debugging
-                    let sum = 0;
-                    for (let i = 0; i < inputData.length; i += 100) sum += Math.abs(inputData[i]);
-                    if (sum > 0.01 && Math.random() < 0.05) {
-                        console.log("Mic Input Activity Detected (Amplified)", sum);
                     }
 
                     const downsampled = downsample(inputData, ctx.sampleRate, 16000);
@@ -388,10 +307,10 @@ export const useMediaRecorder = (): UseMediaRecorderReturn => {
                 processSource.connect(processor);
                 processor.connect(ctx.destination);
 
-                // 2. Video Streaming (Higher FPS for Viewers, backend throttles for AI)
+                // 2. Video Streaming (Screen Share Frame)
                 if (!canvasRef.current) {
                     canvasRef.current = document.createElement('canvas');
-                    canvasRef.current.width = 1280; // 720p for better readability
+                    canvasRef.current.width = 1280; // 720p
                     canvasRef.current.height = 720;
                 }
                 const canvas = canvasRef.current;
@@ -407,11 +326,11 @@ export const useMediaRecorder = (): UseMediaRecorderReturn => {
 
                     if (vid.readyState === vid.HAVE_ENOUGH_DATA) {
                         canvasCtx.drawImage(vid, 0, 0, canvas.width, canvas.height);
-                        const dataUrl = canvas.toDataURL('image/jpeg', 0.6); // Slightly better quality
+                        const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
                         const base64 = dataUrl.split(',')[1];
                         socket.emit('screen_frame', { frame: base64 });
                     }
-                }, 100); // 10 FPS (100ms interval)
+                }, 100); // 10 FPS
             }
 
         } catch (err: any) {
@@ -422,16 +341,16 @@ export const useMediaRecorder = (): UseMediaRecorderReturn => {
                 setError(err.message || 'Failed to start recording');
             }
             cleanup();
-            throw err; // Propagate error so caller knows it failed
+            throw err;
         }
-    }, [selectedAudioId, selectedVideoId, cleanup]);
+    }, [selectedAudioId, cleanup]);
 
 
     useEffect(() => {
         if (!isRecording) return;
 
         // Skip switch if devices haven't actually changed
-        if (selectedAudioId === prevAudioId.current && selectedVideoId === prevVideoId.current) {
+        if (selectedAudioId === prevAudioId.current) {
             return;
         }
 
@@ -439,15 +358,12 @@ export const useMediaRecorder = (): UseMediaRecorderReturn => {
             try {
                 if (isAudioEnabled && selectedAudioId !== prevAudioId.current) {
                     console.log("Switching Audio Device to:", selectedAudioId);
-                    const audioStream = await getMediaStream(selectedAudioId, false);
+                    const audioStream = await getMediaStream(selectedAudioId);
                     const newAudioTrack = audioStream.getAudioTracks()[0];
-                    updateStreamTrack('audio', newAudioTrack);
+                    updateStreamTrack(newAudioTrack);
                     connectStreamToAnalyser(streamRef.current!);
                 }
                 prevAudioId.current = selectedAudioId;
-
-                // if (isVideoEnabled) ... (Video switching logic if uncommented later)
-                prevVideoId.current = selectedVideoId;
 
             } catch (err) {
                 console.error("Failed to switch device:", err);
@@ -456,21 +372,20 @@ export const useMediaRecorder = (): UseMediaRecorderReturn => {
         };
 
         switchDevice();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedAudioId, selectedVideoId, isRecording]);
+    }, [selectedAudioId, isRecording, isAudioEnabled]);
 
     const toggleAudio = useCallback(async () => {
         if (!isRecording || !streamRef.current) return;
 
         if (isAudioEnabled) {
-            updateStreamTrack('audio', null);
+            updateStreamTrack(null);
             setIsAudioEnabled(false);
         } else {
             try {
-                const stream = await getMediaStream(selectedAudioId, false);
+                const stream = await getMediaStream(selectedAudioId);
                 const newTrack = stream.getAudioTracks()[0];
                 if (newTrack) {
-                    updateStreamTrack('audio', newTrack);
+                    updateStreamTrack(newTrack);
                     connectStreamToAnalyser(streamRef.current);
                 }
                 setIsAudioEnabled(true);
@@ -480,27 +395,6 @@ export const useMediaRecorder = (): UseMediaRecorderReturn => {
             }
         }
     }, [isRecording, isAudioEnabled, selectedAudioId]);
-
-    const toggleVideo = useCallback(async () => {
-        if (!isRecording || !streamRef.current) return;
-
-        if (isVideoEnabled) {
-            updateStreamTrack('video', null);
-            setIsVideoEnabled(false);
-        } else {
-            try {
-                const stream = await getMediaStream(false, selectedVideoId);
-                const newTrack = stream.getVideoTracks()[0];
-                if (newTrack) {
-                    updateStreamTrack('video', newTrack);
-                }
-                setIsVideoEnabled(true);
-            } catch (err) {
-                console.error("Failed to re-enable video", err);
-                setError("Failed to enable camera");
-            }
-        }
-    }, [isRecording, isVideoEnabled, selectedVideoId]);
 
     const stopRecording = () => {
         if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
@@ -524,20 +418,15 @@ export const useMediaRecorder = (): UseMediaRecorderReturn => {
         stopRecording,
         getRecordedBlob,
         toggleAudio,
-        toggleVideo,
         isAudioEnabled,
-        isVideoEnabled,
         audioData,
         analyser: analyserRef.current,
         error,
         devices,
         selectedAudioId,
         setSelectedAudioId,
-        selectedVideoId,
-        setSelectedVideoId,
         checkPermissions,
         permissionError,
-        stream,
         prepareStream
     };
 };

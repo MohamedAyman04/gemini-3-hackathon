@@ -170,6 +170,11 @@ export class SessionsGateway
           this.server.to(data.sessionId).emit('ai_text', { text });
         }
       },
+      (issue) => {
+        console.log(`[SessionsGateway] Issue logged for session ${data.sessionId}:`, issue);
+        this.sessionsService.appendIssue(data.sessionId, { ...issue, timestamp: Date.now() });
+        this.server.to(data.sessionId).emit('issue_logged', issue);
+      },
       {
         url: mission?.url,
         context: mission?.context,
