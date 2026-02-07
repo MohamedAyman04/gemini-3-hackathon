@@ -12,8 +12,6 @@ import { GeminiService } from './gemini/gemini.service';
 import { AuthModule } from './auth/auth.module';
 import { JiraModule } from './jira/jira.module';
 import { TrelloModule } from './trello/trello.module';
-import dotenv from 'dotenv';
-dotenv.config();
 
 @Module({
   imports: [
