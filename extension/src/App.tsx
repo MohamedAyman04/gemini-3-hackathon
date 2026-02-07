@@ -4,7 +4,7 @@ import {
   MicOff,
   Radio,
   Activity,
-  Bug,
+
   LogIn,
   Target,
 } from "lucide-react";
@@ -38,11 +38,7 @@ function App() {
     isAudioEnabled,
     audioData,
     error,
-    devices,
-    selectedAudioId,
-    setSelectedAudioId,
-    checkPermissions,
-    permissionError,
+
     prepareStream,
   } = useMediaRecorder();
 

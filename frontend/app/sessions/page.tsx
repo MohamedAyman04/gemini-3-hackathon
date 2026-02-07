@@ -13,6 +13,7 @@ import {
   ArrowRight,
   Globe,
   ExternalLink,
+  Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { getSessions, getMe } from "@/lib/api";
@@ -153,6 +154,32 @@ export default function SessionsHistory() {
             </div>
           </div>
 
+
+
+          {/* Extension Banner */}
+          <div className="bg-gradient-to-r from-purple-900/40 to-blue-900/40 border border-purple-500/30 rounded-xl p-6 flex flex-col md:flex-row items-center justify-between gap-4 shadow-lg mb-8">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-purple-500/20 rounded-full text-purple-300">
+                <Zap className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-white">
+                  Ready to start a mission?
+                </h3>
+                <p className="text-purple-200/80 text-sm">
+                  You need the VibeCheck Companion extension to record sessions.
+                </p>
+              </div>
+            </div>
+            <Button
+              className="whitespace-nowrap bg-purple-600 hover:bg-purple-700 text-white border-0 font-bold"
+              onClick={() => window.open("/vibecheck-extension.xpi", "_blank")}
+            >
+              <Download className="mr-2 w-4 h-4" />
+              Download Extension
+            </Button>
+          </div>
+
           {showFilters && (
             <Card className="border-border bg-card/50 backdrop-blur-sm">
               <CardContent className="p-4">
@@ -286,7 +313,7 @@ export default function SessionsHistory() {
             </CardContent>
           </Card>
         </div>
-      </main>
-    </div>
+      </main >
+    </div >
   );
 }
