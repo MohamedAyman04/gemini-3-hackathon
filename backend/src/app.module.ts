@@ -12,6 +12,8 @@ import { GeminiService } from './gemini/gemini.service';
 import { AuthModule } from './auth/auth.module';
 import { JiraModule } from './jira/jira.module';
 import { TrelloModule } from './trello/trello.module';
+import dotenv from 'dotenv';
+dotenv.config();
 
 @Module({
   imports: [
@@ -28,9 +30,15 @@ import { TrelloModule } from './trello/trello.module';
         // username: configService.get<string>('POSTGRES_USER', 'postgres'),
         // password: configService.get<string>('POSTGRES_PASSWORD', 'postgres'),
         // database: configService.get<string>('POSTGRES_DB', 'vibecheck'),
-        url: configService.get<string>('DATABASE_URL'),
+        url: process.env.DATABASE_URL,
         autoLoadEntities: true,
-        synchronize: true, // For development only
+        synchronize: false,
+        ssl: true,
+        extra: {
+          ssl: {
+            rejectUnauthorized: false, // Required for Render's self-signed certificates
+          },
+        },
       }),
       inject: [ConfigService],
     }),
@@ -40,6 +48,9 @@ import { TrelloModule } from './trello/trello.module';
         connection: {
           host: configService.get<string>('REDIS_HOST', 'localhost'),
           port: configService.get<number>('REDIS_PORT', 6380),
+          password: configService.get<string>('REDIS_PASSWORD'),
+          tls:
+            configService.get<string>('REDIS_TLS') === 'true' ? {} : undefined,
         },
       }),
       inject: [ConfigService],
