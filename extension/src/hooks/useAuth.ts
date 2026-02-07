@@ -16,6 +16,8 @@ interface AuthState {
 
 const DASHBOARD_URL =
   import.meta.env.VITE_DASHBOARD_URL_CLIENT || "http://localhost:3000";
+const BACKEND_URL =
+  import.meta.env.VITE_DASHBOARD_URL || "http://localhost:5000";
 const AUTH_COOKIE_NAME = import.meta.env.VITE_AUTH_COOKIE_NAME || "connect.sid";
 
 export const useAuth = () => {
@@ -29,14 +31,18 @@ export const useAuth = () => {
   const checkAuth = async () => {
     setState((prev) => ({ ...prev, isLoading: true }));
     try {
-      // 1. Check for the cookie
-      // Note: This requires "cookies" permission and host permissions for the URL
-      const cookie = await chrome.cookies.get({
-        url: DASHBOARD_URL,
-        name: AUTH_COOKIE_NAME,
+      // 1. Check for the cookie using multiple methods to be safe
+      const cookies = await chrome.cookies.getAll({
+        domain: new URL(BACKEND_URL).hostname,
       });
 
-      if (!cookie) {
+      const authCookie = cookies.find((c) => c.name === AUTH_COOKIE_NAME);
+
+      if (!authCookie) {
+        console.log(
+          "[Auth] No cookie found for domain:",
+          new URL(BACKEND_URL).hostname,
+        );
         setState({
           isAuthenticated: false,
           isLoading: false,
@@ -46,25 +52,39 @@ export const useAuth = () => {
         return;
       }
 
-      // 2. If cookie exists, fetching user profile (Placeholder for API call)
-      // In a real scenario, we would use the cookie to make a request to /api/me
-      // const response = await fetch(`${DASHBOARD_URL}/api/me`);
-      // const userData = await response.json();
+      console.log("[Auth] Cookie found, fetching user profile...");
 
-      // MOCK DATA for now since backend is not ready
-      const mockUser: User = {
-        id: "user_123",
-        name: "VibeCheck User",
-        email: "user@vibecheck.ai",
-        avatarUrl: `https://ui-avatars.com/api/?name=VibeCheck+User&background=random`,
-      };
+      // 2. Fetch real user profile from backend
+      try {
+        const response = await fetch(`${BACKEND_URL}/auth/me`, {
+          credentials: "include",
+        });
 
-      setState({
-        isAuthenticated: true,
-        isLoading: false,
-        user: mockUser,
-        error: null,
-      });
+        if (!response.ok) {
+          const errorText = await response.text().catch(() => "Unknown error");
+          console.error("[Auth] Fetch me failed:", response.status, errorText);
+          throw new Error(`Profile fetch failed (${response.status})`);
+        }
+
+        const userData = await response.json();
+        console.log("[Auth] Profile fetched successfully:", userData.name);
+
+        setState({
+          isAuthenticated: true,
+          isLoading: false,
+          user: userData,
+          error: null,
+        });
+      } catch (fetchErr: any) {
+        console.error("[Auth] Fetch error:", fetchErr);
+        // If fetch fails but cookie exists, maybe it's a network/CORS/CSP issue
+        setState({
+          isAuthenticated: false,
+          isLoading: false,
+          user: null,
+          error: `Connection to backend failed: ${fetchErr.message}`,
+        });
+      }
     } catch (err: any) {
       console.error("Auth check failed:", err);
       setState({
@@ -82,8 +102,11 @@ export const useAuth = () => {
   };
 
   const logout = async () => {
-    // Placeholder: In reality, we might clear the cookie or call an API
-    // await chrome.cookies.remove({ url: DASHBOARD_URL, name: AUTH_COOKIE_NAME });
+    try {
+      await chrome.cookies.remove({ url: BACKEND_URL, name: AUTH_COOKIE_NAME });
+    } catch (e) {
+      console.error("Failed to remove cookie:", e);
+    }
     setState({
       isAuthenticated: false,
       isLoading: false,
@@ -96,14 +119,11 @@ export const useAuth = () => {
   useEffect(() => {
     checkAuth();
 
-    // Optional: Listen for cookie changes to auto-login/logout
+    // Listen for cookie changes to auto-login/logout
     const handleCookieChange = (
       changeInfo: chrome.cookies.CookieChangeInfo,
     ) => {
-      if (
-        changeInfo.cookie.name === AUTH_COOKIE_NAME &&
-        changeInfo.cookie.domain.includes("localhost")
-      ) {
+      if (changeInfo.cookie.name === AUTH_COOKIE_NAME) {
         checkAuth();
       }
     };

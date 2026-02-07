@@ -1,25 +1,32 @@
 import { useRef, useEffect, useState } from "react";
-import {
-  Mic,
-  MicOff,
-  Radio,
-  Activity,
-
-  LogIn,
-  Target,
-} from "lucide-react";
+import { Mic, MicOff, Radio, Activity, LogIn, Target } from "lucide-react";
 import { useMediaRecorder } from "./hooks/useMediaRecorder";
 import { useAuth } from "./hooks/useAuth";
 import { useMissions } from "./hooks/useMissions";
 import { useSocket } from "./hooks/useSocket";
 import Image from "next/image";
 
-const DASHBOARD_URL =
+const BACKEND_URL =
   import.meta.env.VITE_DASHBOARD_URL || "http://localhost:5000";
+const FRONTEND_URL =
+  import.meta.env.VITE_DASHBOARD_URL_CLIENT || "http://localhost:3000";
 
 function App() {
-  const { missions, isLoading: missionsLoading, createMission } = useMissions();
-  const { isAuthenticated, isLoading, login, debugLogin } = useAuth();
+  const {
+    missions,
+    isLoading: missionsLoading,
+    createMission,
+    error: missionsError,
+    refresh: refreshMissions,
+  } = useMissions();
+  const {
+    isAuthenticated,
+    isLoading,
+    login,
+    debugLogin,
+    error: authError,
+    refresh: refreshAuth,
+  } = useAuth();
   const {
     socket,
     isConnected: isSocketConnected,
@@ -249,7 +256,7 @@ function App() {
       }
 
       // 2. Create Session on Backend
-      const response = await fetch(`${DASHBOARD_URL}/sessions`, {
+      const response = await fetch(`${BACKEND_URL}/sessions`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -345,7 +352,7 @@ function App() {
       formData.append("logs", JSON.stringify(logs));
 
       const response = await fetch(
-        `${DASHBOARD_URL}/sessions/${currentSessionId}/finalize`,
+        `${BACKEND_URL}/sessions/${currentSessionId}/finalize`,
         {
           method: "POST",
           credentials: "include",
@@ -393,16 +400,24 @@ function App() {
             src="/vibecheck2.svg"
             alt="VibeCheck"
             className="w-20 h-20 animate-glow rounded-[32px] p-4 bg-white shadow-2xl border border-midnight/5"
-            style={{ position: "relative", left: "15px", bottom: "2px" }}
           />
           <h1 className="text-4xl font-black tracking-tight text-midnight uppercase">
-            ibeCheck
+            VibeCheck
           </h1>
         </div>
 
         <p className="text-muted-foreground max-w-xs font-medium">
           Connect your account to start an autonomous testing session.
         </p>
+
+        {authError && (
+          <div className="bg-red-500/10 border border-red-500/30 text-red-500 p-4 rounded-2xl text-xs max-w-xs mb-4">
+            <strong>Auth Error:</strong> {authError}
+            <button onClick={refreshAuth} className="ml-2 underline font-bold">
+              Retry
+            </button>
+          </div>
+        )}
 
         <button
           onClick={login}
@@ -421,7 +436,7 @@ function App() {
         </button>
 
         <p className="text-xs text-gray-500 mt-4">
-          Only works with active session on localhost:3000
+          Only works with active sessions
         </p>
       </div>
     );
@@ -455,7 +470,7 @@ function App() {
             <button
               onClick={() =>
                 window.open(
-                  `http://localhost:3000/live/${currentSessionId}`,
+                  `${FRONTEND_URL}/live/${currentSessionId}`,
                   "_blank",
                 )
               }
@@ -466,245 +481,258 @@ function App() {
             </button>
           )}
           <div
-            className={`flex items-center gap-2 text-[10px] font-black px-3 py-1.5 rounded-xl transition-all duration-500 border ${isRecording
-              ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.2)]"
-              : "bg-red-500/10 text-red-400 border-red-500/30"
-              }`}
+            className={`flex items-center gap-2 text-[10px] font-black px-3 py-1.5 rounded-xl transition-all duration-500 border ${
+              isRecording
+                ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.2)]"
+                : "bg-red-500/10 text-red-400 border-red-500/30"
+            }`}
           >
             <div
-              className={`w-1.5 h-1.5 rounded-full ${isRecording
-                ? "bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.6)]"
-                : "bg-red-400"
-                }`}
+              className={`w-1.5 h-1.5 rounded-full ${
+                isRecording
+                  ? "bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.6)]"
+                  : "bg-red-400"
+              }`}
             />
             {isRecording ? "ONLINE" : "OFFLINE"}
           </div>
         </div>
-      </header >
+      </header>
 
       {/* Main Control */}
-      < main className="flex-1 flex flex-col items-center justify-center gap-8 py-8 relative" >
-        {
-          completedSessionId ? (
-            <div className="flex flex-col items-center justify-center gap-6 text-center animate-in fade-in zoom-in duration-300" >
-              <div className="w-20 h-20 bg-green-900/30 text-green-400 rounded-full flex items-center justify-center border-2 border-green-500/50 mb-2">
-                <svg
-                  className="w-10 h-10"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="M5 13l4 4L19 7"
-                  />
-                </svg>
-              </div>
-              <div>
-                <h2 className="text-xl font-bold text-white mb-2">
-                  Session Completed!
-                </h2>
-                <p className="text-gray-400 text-sm max-w-[200px]">
-                  Your session has been recorded and analyzed.
-                </p>
-              </div>
-
-              <button
-                onClick={() =>
-                  window.open(
-                    `http://localhost:3000/sessions/${completedSessionId}`,
-                    "_blank",
-                  )
-                }
-                className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg font-medium transition-colors w-full flex items-center justify-center gap-2"
+      <main className="flex-1 flex flex-col items-center justify-center gap-8 py-8 relative">
+        {completedSessionId ? (
+          <div className="flex flex-col items-center justify-center gap-6 text-center animate-in fade-in zoom-in duration-300">
+            <div className="w-20 h-20 bg-green-900/30 text-green-400 rounded-full flex items-center justify-center border-2 border-green-500/50 mb-2">
+              <svg
+                className="w-10 h-10"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
               >
-                <Target className="w-4 h-4" />
-                View Session Report
-              </button>
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M5 13l4 4L19 7"
+                />
+              </svg>
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-white mb-2">
+                Session Completed!
+              </h2>
+              <p className="text-gray-400 text-sm max-w-[200px]">
+                Your session has been recorded and analyzed.
+              </p>
+            </div>
 
+            <button
+              onClick={() =>
+                window.open(
+                  `${FRONTEND_URL}/sessions/${completedSessionId}`,
+                  "_blank",
+                )
+              }
+              className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg font-medium transition-colors w-full flex items-center justify-center gap-2"
+            >
+              <Target className="w-4 h-4" />
+              View Session Report
+            </button>
+
+            <button
+              onClick={() => setCompletedSessionId(null)}
+              className="text-gray-400 hover:text-white text-sm underline decoration-dotted"
+            >
+              Start New Session
+            </button>
+          </div>
+        ) : (
+          <>
+            {/* Connection Ring */}
+            <div className="relative group">
+              <div
+                className={`absolute -inset-1 rounded-full blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200 ${isRecording ? "bg-gradient-to-r from-red-600 to-orange-600" : "bg-lavender"}`}
+              ></div>
               <button
-                onClick={() => setCompletedSessionId(null)}
-                className="text-gray-400 hover:text-white text-sm underline decoration-dotted"
+                onClick={toggleConnection}
+                disabled={isEnding}
+                className={`relative w-44 h-44 rounded-full flex flex-col items-center justify-center bg-white border-[6px] transition-all duration-300 shadow-2xl ${isRecording ? "border-red-500 shadow-red-500/20" : "border-lavender hover:border-periwinkle"}`}
               >
-                Start New Session
+                {isEnding ? (
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
+                ) : isRecording ? (
+                  <>
+                    <div className="w-12 h-12 bg-red-500 rounded-lg animate-pulse mb-2" />
+                    <span className="text-sm font-bold text-red-500">STOP</span>
+                  </>
+                ) : (
+                  <>
+                    <Radio className="w-12 h-12 text-purple-500" />
+                    <span className="mt-2 text-sm font-semibold tracking-widest uppercase text-gray-400">
+                      Start
+                    </span>
+                  </>
+                )}
               </button>
             </div>
-          ) : (
-            <>
-              {/* Connection Ring */}
-              <div className="relative group">
-                <div
-                  className={`absolute -inset-1 rounded-full blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200 ${isRecording ? "bg-gradient-to-r from-red-600 to-orange-600" : "bg-lavender"}`}
-                ></div>
+
+            {/* Dashboard Errors */}
+            {missionsError && (
+              <div className="text-red-400 text-[10px] bg-red-900/20 px-3 py-1.5 rounded-xl border border-red-500/30 mb-2 flex items-center justify-between gap-2">
+                <span>{missionsError}</span>
                 <button
-                  onClick={toggleConnection}
-                  disabled={isEnding}
-                  className={`relative w-44 h-44 rounded-full flex flex-col items-center justify-center bg-white border-[6px] transition-all duration-300 shadow-2xl ${isRecording ? "border-red-500 shadow-red-500/20" : "border-lavender hover:border-periwinkle"}`}
+                  onClick={refreshMissions}
+                  className="underline font-bold uppercase"
                 >
-                  {isEnding ? (
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
-                  ) : isRecording ? (
-                    <>
-                      <div className="w-12 h-12 bg-red-500 rounded-lg animate-pulse mb-2" />
-                      <span className="text-sm font-bold text-red-500">STOP</span>
-                    </>
-                  ) : (
-                    <>
-                      <Radio className="w-12 h-12 text-purple-500" />
-                      <span className="mt-2 text-sm font-semibold tracking-widest uppercase text-gray-400">
-                        Start
-                      </span>
-                    </>
-                  )}
+                  Retry
                 </button>
               </div>
+            )}
 
-              {/* Session Error */}
-              {sessionError && (
-                <div className="text-red-400 text-xs bg-red-900/20 px-3 py-1 rounded border border-red-800/50">
-                  {sessionError}
+            {/* Session Error */}
+            {sessionError && (
+              <div className="text-red-400 text-xs bg-red-900/20 px-3 py-1 rounded border border-red-800/50">
+                {sessionError}
+              </div>
+            )}
+
+            {/* Audio Visualizer Placeholder */}
+            <div className="w-full h-12 bg-white/50 rounded-2xl flex items-center justify-center gap-1 overflow-hidden border border-midnight/5 p-2 shadow-inner">
+              {error && (
+                <div className="flex flex-col items-center gap-2 w-full">
+                  <div className="text-red-500 text-xs text-center">
+                    {error}
+                  </div>
+                  {error.includes("denied") && (
+                    <button
+                      onClick={() =>
+                        window.open(
+                          chrome.runtime.getURL("popup.html"),
+                          "_blank",
+                        )
+                      }
+                      className="text-xs bg-gray-800 hover:bg-gray-700 text-white px-3 py-1 rounded border border-gray-600 transition-colors"
+                    >
+                      Open in Tab to Fix
+                    </button>
+                  )}
+                </div>
+              )}
+              {!error && isRecording ? (
+                Array.from({ length: 20 }).map((_, i) => {
+                  const value = audioData[i] || 0;
+                  const height = Math.max(4, (value / 255) * 100);
+
+                  return (
+                    <div
+                      key={i}
+                      className="w-1 bg-lavender rounded-t-sm transition-all duration-75"
+                      style={{
+                        height: `${height}%`,
+                        opacity: 0.5 + value / 510,
+                      }}
+                    />
+                  );
+                })
+              ) : (
+                <span className="text-midnight/40 text-[10px] font-bold uppercase tracking-widest">
+                  Audio Inactive
+                </span>
+              )}
+            </div>
+
+            {/* Controls Grid */}
+            <div className="flex flex-col gap-3 w-full max-w-sm">
+              {/* Mission Selection */}
+              {!isRecording && (
+                <div className="w-full space-y-2">
+                  {isCreating ? (
+                    <div className="bg-gray-800 p-3 rounded-lg border border-gray-700 space-y-2">
+                      <input
+                        type="text"
+                        placeholder="Mission Name"
+                        className="w-full bg-gray-900 text-sm p-2 rounded border border-gray-700 focus:border-purple-500 outline-none"
+                        value={newMissionName}
+                        onChange={(e) => setNewMissionName(e.target.value)}
+                      />
+                      <input
+                        type="text"
+                        placeholder="Context (Optional)"
+                        className="w-full bg-gray-900 text-sm p-2 rounded border border-gray-700 focus:border-purple-500 outline-none"
+                        value={newMissionContext}
+                        onChange={(e) => setNewMissionContext(e.target.value)}
+                      />
+                      <button
+                        onClick={() => setIsCreating(false)}
+                        className="text-xs text-gray-400 hover:text-white"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 w-full">
+                      <div className="p-4 bg-midnight text-linen border border-linen/20 rounded-2xl shadow-sm">
+                        <Target className="w-6 h-6" />
+                      </div>
+                      <div className="relative flex-1">
+                        <select
+                          value={selectedMissionId}
+                          onChange={(e) => {
+                            if (e.target.value === "NEW") {
+                              window.open(
+                                `${FRONTEND_URL}/missions/new`,
+                                "_blank",
+                              );
+                            } else {
+                              setSelectedMissionId(e.target.value);
+                            }
+                          }}
+                          disabled={missionsLoading}
+                          className="w-full bg-midnight text-sm text-linen rounded-2xl border border-linen/20 px-4 py-4 focus:outline-none focus:border-lavender appearance-none truncate disabled:opacity-50 font-bold shadow-lg"
+                        >
+                          <option value="" className="bg-midnight">
+                            Select a Mission...
+                          </option>
+                          <option
+                            value="NEW"
+                            className="bg-midnight text-lavender font-black"
+                          >
+                            + Create New Mission
+                          </option>
+                          {missions.map((mission) => (
+                            <option
+                              key={mission.id}
+                              value={mission.id}
+                              className="bg-midnight"
+                            >
+                              {mission.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
-              {/* Audio Visualizer Placeholder */}
-              <div className="w-full h-12 bg-white/50 rounded-2xl flex items-center justify-center gap-1 overflow-hidden border border-midnight/5 p-2 shadow-inner">
-                {error && (
-                  <div className="flex flex-col items-center gap-2 w-full">
-                    <div className="text-red-500 text-xs text-center">
-                      {error}
-                    </div>
-                    {error.includes("denied") && (
-                      <button
-                        onClick={() =>
-                          window.open(
-                            chrome.runtime.getURL("popup.html"),
-                            "_blank",
-                          )
-                        }
-                        className="text-xs bg-gray-800 hover:bg-gray-700 text-white px-3 py-1 rounded border border-gray-600 transition-colors"
-                      >
-                        Open in Tab to Fix
-                      </button>
-                    )}
-                  </div>
-                )}
-                {!error && isRecording ? (
-                  Array.from({ length: 20 }).map((_, i) => {
-                    const value = audioData[i] || 0;
-                    const height = Math.max(4, (value / 255) * 100);
-
-                    return (
-                      <div
-                        key={i}
-                        className="w-1 bg-lavender rounded-t-sm transition-all duration-75"
-                        style={{
-                          height: `${height}%`,
-                          opacity: 0.5 + value / 510,
-                        }}
-                      />
-                    );
-                  })
-                ) : (
-                  <span className="text-midnight/40 text-[10px] font-bold uppercase tracking-widest">
-                    Audio Inactive
-                  </span>
-                )}
+              {/* Audio Input */}
+              <div className="flex items-center gap-2 w-full">
+                <button
+                  onClick={toggleAudio}
+                  className={`p-4 rounded-2xl transition-colors flex-shrink-0 border shadow-sm ${!isAudioEnabled ? "bg-red-500/10 text-red-500 hover:bg-red-500/20 border-red-500/50" : "bg-midnight text-linen hover:text-white border-linen/20 hover:border-linen/40"}`}
+                >
+                  {!isAudioEnabled ? (
+                    <MicOff className="w-6 h-6" />
+                  ) : (
+                    <Mic className="w-6 h-6" />
+                  )}
+                </button>
               </div>
-
-              {/* Controls Grid */}
-              <div className="flex flex-col gap-3 w-full max-w-sm">
-                {/* Mission Selection */}
-                {!isRecording && (
-                  <div className="w-full space-y-2">
-                    {isCreating ? (
-                      <div className="bg-gray-800 p-3 rounded-lg border border-gray-700 space-y-2">
-                        <input
-                          type="text"
-                          placeholder="Mission Name"
-                          className="w-full bg-gray-900 text-sm p-2 rounded border border-gray-700 focus:border-purple-500 outline-none"
-                          value={newMissionName}
-                          onChange={(e) => setNewMissionName(e.target.value)}
-                        />
-                        <input
-                          type="text"
-                          placeholder="Context (Optional)"
-                          className="w-full bg-gray-900 text-sm p-2 rounded border border-gray-700 focus:border-purple-500 outline-none"
-                          value={newMissionContext}
-                          onChange={(e) => setNewMissionContext(e.target.value)}
-                        />
-                        <button
-                          onClick={() => setIsCreating(false)}
-                          className="text-xs text-gray-400 hover:text-white"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2 w-full">
-                        <div className="p-4 bg-midnight text-linen border border-linen/20 rounded-2xl shadow-sm">
-                          <Target className="w-6 h-6" />
-                        </div>
-                        <div className="relative flex-1">
-                          <select
-                            value={selectedMissionId}
-                            onChange={(e) => {
-                              if (e.target.value === "NEW") {
-                                window.open(
-                                  "http://localhost:3000/missions/new",
-                                  "_blank",
-                                );
-                              } else {
-                                setSelectedMissionId(e.target.value);
-                              }
-                            }}
-                            disabled={missionsLoading}
-                            className="w-full bg-midnight text-sm text-linen rounded-2xl border border-linen/20 px-4 py-4 focus:outline-none focus:border-lavender appearance-none truncate disabled:opacity-50 font-bold shadow-lg"
-                          >
-                            <option value="" className="bg-midnight">
-                              Select a Mission...
-                            </option>
-                            <option
-                              value="NEW"
-                              className="bg-midnight text-lavender font-black"
-                            >
-                              + Create New Mission
-                            </option>
-                            {missions.map((mission) => (
-                              <option
-                                key={mission.id}
-                                value={mission.id}
-                                className="bg-midnight"
-                              >
-                                {mission.name}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Audio Input */}
-                <div className="flex items-center gap-2 w-full">
-                  <button
-                    onClick={toggleAudio}
-                    className={`p-4 rounded-2xl transition-colors flex-shrink-0 border shadow-sm ${!isAudioEnabled ? "bg-red-500/10 text-red-500 hover:bg-red-500/20 border-red-500/50" : "bg-midnight text-linen hover:text-white border-linen/20 hover:border-linen/40"}`}
-                  >
-                    {!isAudioEnabled ? (
-                      <MicOff className="w-6 h-6" />
-                    ) : (
-                      <Mic className="w-6 h-6" />
-                    )}
-                  </button>
-                </div>
-              </div>
-            </>
-          )
-        }
-      </main >
+            </div>
+          </>
+        )}
+      </main>
 
       {/* Live Chat / Events */}
       <section className="bg-white rounded-[40px] p-6 border border-midnight/5 h-64 flex flex-col shadow-xl">
@@ -728,10 +756,11 @@ function App() {
                 className={`flex ${msg.source === "ai" ? "justify-start" : "justify-end"}`}
               >
                 <div
-                  className={`max-w-[85%] text-xs p-2 rounded-lg ${msg.source === "ai"
-                    ? "bg-purple-900/30 border border-purple-800/50 text-purple-200 rounded-tl-none"
-                    : "bg-gray-800 border border-gray-700 text-gray-300 rounded-tr-none"
-                    }`}
+                  className={`max-w-[85%] text-xs p-2 rounded-lg ${
+                    msg.source === "ai"
+                      ? "bg-purple-900/30 border border-purple-800/50 text-purple-200 rounded-tl-none"
+                      : "bg-gray-800 border border-gray-700 text-gray-300 rounded-tr-none"
+                  }`}
                 >
                   {msg.source === "ai" && (
                     <span className="block text-[10px] text-purple-400 font-bold mb-1">

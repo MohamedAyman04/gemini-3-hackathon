@@ -1,48 +1,33 @@
 {
-    "manifest_version": 3,
-    "name": "VibeCheck Companion",
-    "version": "1.0.0",
-    "permissions": [
-        "scripting",
-        "activeTab",
-        "cookies"
-    ],
-    "host_permissions": [
-        "<all_urls>"
-    ],
-    "action": {
-        "default_title": "VibeCheck",
-        "default_icon": "public/vite.svg"
-    },
-    "browser_specific_settings": {
-        "gecko": {
-            "id": "vibecheck@gemini.hackathon",
-            "strict_min_version": "109.0",
-            "data_collection_permissions": {
-                "required": [
-                    "websiteActivity",
-                    "websiteContent"
-                ]
-            }
-        }
-    },
-    "content_security_policy": {
-        "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' http://localhost:5000 ws://localhost:5000;"
-    },
-    "background": {
-        "scripts": [
-            "src/background.ts"
-        ],
-        "type": "module"
-    },
-    "content_scripts": [
-        {
-            "matches": [
-                "<all_urls>"
-            ],
-            "js": [
-                "src/content.ts"
-            ]
-        }
-    ]
+  "manifest_version": 3,
+  "name": "VibeCheck Companion",
+  "version": "1.0.0",
+  "permissions": ["scripting", "activeTab", "cookies"],
+  "host_permissions": ["<all_urls>"],
+  "action": {
+    "default_title": "VibeCheck",
+    "default_icon": "public/vite.svg"
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "vibecheck@gemini.hackathon",
+      "strict_min_version": "109.0",
+      "data_collection_permissions": {
+        "required": ["websiteActivity", "websiteContent"]
+      }
+    }
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' http://localhost:5000 ws://localhost:5000 https://vibecheck-backend-2v2h.onrender.com wss://vibecheck-backend-2v2h.onrender.com https://gemini-3-hackathon.vercel.app;"
+  },
+  "background": {
+    "scripts": ["src/background.ts"],
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["src/content.ts"]
+    }
+  ]
 }

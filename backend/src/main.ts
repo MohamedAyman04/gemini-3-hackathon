@@ -13,6 +13,7 @@ async function bootstrap() {
       'http://localhost:3000',
       'http://127.0.0.1:3000',
       'https://gemini-3-hackathon.vercel.app',
+      'https://vibecheck-backend-2v2h.onrender.com',
       /^chrome-extension:\/\//,
     ],
     credentials: true,
