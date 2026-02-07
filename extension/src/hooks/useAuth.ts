@@ -129,7 +129,29 @@ export const useAuth = () => {
     };
 
     chrome.cookies.onChanged.addListener(handleCookieChange);
-    return () => chrome.cookies.onChanged.removeListener(handleCookieChange);
+
+    // Listen for direct Auth Success messages from the content script
+    const handleRuntimeMessage = (message: any) => {
+      if (message.type === "AUTH_SUCCESS_EVENT") {
+        console.log("[Auth] Success event received from extension bridge");
+        setState({
+          isAuthenticated: true,
+          isLoading: false,
+          user: message.user,
+          error: null,
+        });
+
+        // Still double check with backend to be absolutely sure the session is established
+        setTimeout(() => checkAuth(), 1000);
+      }
+    };
+
+    chrome.runtime.onMessage.addListener(handleRuntimeMessage);
+
+    return () => {
+      chrome.cookies.onChanged.removeListener(handleCookieChange);
+      chrome.runtime.onMessage.removeListener(handleRuntimeMessage);
+    };
   }, []);
 
   // Dev helper to bypass auth

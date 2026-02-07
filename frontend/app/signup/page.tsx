@@ -45,6 +45,9 @@ export default function SignupPage() {
       });
 
       if (response.ok) {
+        const user = await response.json();
+        // Notify the extension
+        window.postMessage({ type: "VIBECHECK_AUTH_SUCCESS", user }, "*");
         router.push("/");
       } else {
         const error = await response.json();

@@ -37,6 +37,9 @@ export default function LoginPage() {
       });
 
       if (response.ok) {
+        const user = await response.json();
+        // Notify the extension
+        window.postMessage({ type: "VIBECHECK_AUTH_SUCCESS", user }, "*");
         router.push("/");
       } else {
         alert("Login failed");
