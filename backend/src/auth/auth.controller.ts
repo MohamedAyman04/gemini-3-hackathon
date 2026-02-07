@@ -24,10 +24,10 @@ export class AuthController {
     // Set cookie for the extension
     // In a real app, this would be a secure session ID
     response.cookie('connect.sid', user.id, {
-      httpOnly: false, // Extension needs to read it or browser handles it
-      secure: false, // Set to true in production
-      sameSite: 'lax',
-      maxAge: 3600000 * 24 * 7, // 7 days
+      httpOnly: false,
+      secure: true,
+      sameSite: 'none',
+      maxAge: 3600000 * 24 * 7,
     });
 
     return user;
@@ -46,8 +46,8 @@ export class AuthController {
 
     response.cookie('connect.sid', user.id, {
       httpOnly: false,
-      secure: false,
-      sameSite: 'lax',
+      secure: true,
+      sameSite: 'none',
       maxAge: 3600000 * 24 * 7,
     });
 

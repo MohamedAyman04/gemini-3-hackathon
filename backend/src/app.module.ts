@@ -23,13 +23,20 @@ import { TrelloModule } from './trello/trello.module';
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
         type: 'postgres',
-        host: configService.get<string>('POSTGRES_HOST', 'localhost'),
-        port: configService.get<number>('POSTGRES_PORT', 5432),
-        username: configService.get<string>('POSTGRES_USER', 'postgres'),
-        password: configService.get<string>('POSTGRES_PASSWORD', 'postgres'),
-        database: configService.get<string>('POSTGRES_DB', 'vibecheck'),
+        // host: configService.get<string>('POSTGRES_HOST', 'localhost'),
+        // port: configService.get<number>('POSTGRES_PORT', 5432),
+        // username: configService.get<string>('POSTGRES_USER', 'postgres'),
+        // password: configService.get<string>('POSTGRES_PASSWORD', 'postgres'),
+        // database: configService.get<string>('POSTGRES_DB', 'vibecheck'),
+        url: process.env.DATABASE_URL,
         autoLoadEntities: true,
-        synchronize: true, // For development only
+        synchronize: true,
+        ssl: true,
+        extra: {
+          ssl: {
+            rejectUnauthorized: false, // Required for Render's self-signed certificates
+          },
+        },
       }),
       inject: [ConfigService],
     }),
@@ -39,6 +46,9 @@ import { TrelloModule } from './trello/trello.module';
         connection: {
           host: configService.get<string>('REDIS_HOST', 'localhost'),
           port: configService.get<number>('REDIS_PORT', 6380),
+          password: configService.get<string>('REDIS_PASSWORD'),
+          tls:
+            configService.get<string>('REDIS_TLS') === 'true' ? {} : undefined,
         },
       }),
       inject: [ConfigService],
@@ -54,4 +64,4 @@ import { TrelloModule } from './trello/trello.module';
   controllers: [AppController],
   providers: [AppService, GeminiService],
 })
-export class AppModule { }
+export class AppModule {}
