@@ -23,11 +23,12 @@ import { TrelloModule } from './trello/trello.module';
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
         type: 'postgres',
-        host: configService.get<string>('POSTGRES_HOST', 'localhost'),
-        port: configService.get<number>('POSTGRES_PORT', 5432),
-        username: configService.get<string>('POSTGRES_USER', 'postgres'),
-        password: configService.get<string>('POSTGRES_PASSWORD', 'postgres'),
-        database: configService.get<string>('POSTGRES_DB', 'vibecheck'),
+        // host: configService.get<string>('POSTGRES_HOST', 'localhost'),
+        // port: configService.get<number>('POSTGRES_PORT', 5432),
+        // username: configService.get<string>('POSTGRES_USER', 'postgres'),
+        // password: configService.get<string>('POSTGRES_PASSWORD', 'postgres'),
+        // database: configService.get<string>('POSTGRES_DB', 'vibecheck'),
+        url: configService.get<string>('DATABASE_URL'),
         autoLoadEntities: true,
         synchronize: true, // For development only
       }),
@@ -54,4 +55,4 @@ import { TrelloModule } from './trello/trello.module';
   controllers: [AppController],
   providers: [AppService, GeminiService],
 })
-export class AppModule { }
+export class AppModule {}
