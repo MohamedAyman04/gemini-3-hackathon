@@ -30,7 +30,7 @@ import { TrelloModule } from './trello/trello.module';
         // database: configService.get<string>('POSTGRES_DB', 'vibecheck'),
         url: process.env.DATABASE_URL,
         autoLoadEntities: true,
-        synchronize: false,
+        synchronize: true,
         ssl: true,
         extra: {
           ssl: {
