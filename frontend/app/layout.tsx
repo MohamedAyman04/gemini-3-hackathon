@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ibeCheck | Autonomous User Testing",
+  title: "VibeCheck | Autonomous User Testing",
   description: "AI-powered autonomous user testing agent",
   icons: {
     icon: "/vibecheck2.svg",
