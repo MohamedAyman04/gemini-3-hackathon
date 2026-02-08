@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bloom & Petal Co.</title>
+    <style>
+        /* =========================================
+           BASE STYLES (Shared Structure)
+           ========================================= */
+        :root {
+            --primary: #ff8fa3;
+            --text: #333;
+            --bg: #fff;
+        }
+        
+        body {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            color: var(--text);
+            transition: all 0.3s ease;
+        }
+
+        header {
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #fff;
+        }
+
+        .hero {
+            background-color: #ffe6ea;
+            text-align: center;
+            padding: 60px 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        .product-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+        }
+
+        .product-card {
+            border: 1px solid #eee;
+            background: white;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .product-image {
+            width: 100%;
+            height: 250px;
+            background-color: #ddd;
+        }
+
+        /* =========================================
+           STATE 1: THE "BUGGY" VERSION (Default)
+           ========================================= */
+        
+        /* BUG: Header alignment is off, logo is too small */
+        body:not(.fixed) header {
+            border-bottom: 1px solid #000;
+            height: 30px; /* Forces content to overflow ugly */
+            overflow: visible; 
+        }
+
+        /* BUG: Nav links are default blue/underlined and jammed together */
+        body:not(.fixed) nav a {
+            margin-left: 5px;
+            color: blue;
+            text-decoration: underline;
+        }
+
+        /* BUG: Hero text has low contrast and bad spacing */
+        body:not(.fixed) .hero h1 {
+            margin-bottom: 0; /* Title touches subtitle */
+            color: #ffcccc; /* White-ish pink on pink bg (Hard to read) */
+            text-shadow: 1px 1px 0 #000; /* Ugly fix for contrast */
+        }
+
+        /* BUG: Images are stretched/squashed */
+        body:not(.fixed) .product-image {
+            object-fit: fill; /* Distorts image aspect ratio */
+        }
+
+        /* BUG: Cards have no internal padding, text touches border */
+        body:not(.fixed) .product-info {
+            padding: 0px; 
+            text-align: center;
+        }
+
+        /* BUG: Price and Title are same size (Hierarchy issue) */
+        body:not(.fixed) h3 {
+            font-size: 16px;
+            margin: 5px 0;
+            font-weight: normal;
+        }
+        body:not(.fixed) .price {
+            font-size: 16px; 
+            color: #333;
+        }
+
+        /* BUG: Button alignment and color clash */
+        body:not(.fixed) button.buy-btn {
+            background-color: red; /* Harsh red */
+            color: black;
+            border: none;
+            width: 100%;
+            padding: 10px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 50px; /* Weird giant gap */
+            text-align: left; /* Text not centered in button */
+        }
+
+        /* =========================================
+           STATE 2: THE "FIXED" VERSION
+           ========================================= */
+        
+        body.fixed {
+            background-color: #fafafa;
+        }
+
+        body.fixed header {
+            border-bottom: 1px solid #eee;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+
+        body.fixed .logo {
+            font-weight: bold;
+            font-size: 24px;
+            color: #d6336c;
+            letter-spacing: -1px;
+        }
+
+        body.fixed nav a {
+            margin-left: 30px;
+            text-decoration: none;
+            color: #555;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+        body.fixed nav a:hover { color: #d6336c; }
+
+        body.fixed .hero h1 {
+            color: #d6336c;
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+        body.fixed .hero p {
+            color: #666;
+            font-size: 18px;
+            margin-top: 0;
+        }
+
+        /* FIX: Images crop nicely */
+        body.fixed .product-image {
+            object-fit: cover; 
+        }
+
+        /* FIX: proper card spacing */
+        body.fixed .product-card {
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            border: none;
+            transition: transform 0.2s;
+        }
+        body.fixed .product-card:hover {
+            transform: translateY(-5px);
+        }
+
+        body.fixed .product-info {
+            padding: 20px;
+            flex-grow: 1;
+        }
+
+        body.fixed h3 {
+            margin: 0 0 10px 0;
+            font-size: 20px;
+            color: #222;
+        }
+
+        body.fixed .price {
+            font-size: 18px;
+            color: #d6336c;
+            font-weight: bold;
+            margin-bottom: 15px;
+            display: block;
+        }
+
+        body.fixed button.buy-btn {
+            background-color: #d6336c;
+            color: white;
+            border: none;
+            width: 100%;
+            padding: 10px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: auto; 
+            text-align: center;
+            transition: background 0.2s;
+        }
+        body.fixed button.buy-btn:hover {
+            background-color: #a82050;
+        }
+
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo">Bloom & Petal</div>
+        <nav>
+            <a href="#">Shop</a>
+            <a href="#">About Us</a>
+            <a href="#">Contact</a>
+        </nav>
+    </header>
+
+    <div class="hero">
+        <h1>Fresh Flowers Daily.</h1>
+        <p>Hand-picked arrangements for every occasion.</p>
+    </div>
+
+    <div class="container">
+        <div class="product-grid">
+            <div class="product-card">
+                <img src="https://images.unsplash.com/photo-1520763185298-1b434c919102?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60" alt="Tulips" class="product-image">
+                <div class="product-info">
+                    <h3>Spring Tulip Bundle</h3>
+                    <span class="price">$25.00</span>
+                    <p>Fresh tulips sourced directly from Holland.</p>
+                </div>
+                <button class="buy-btn">Add to Cart</button>
+            </div>
+
+            <div class="product-card">
+                <img src="https://images.unsplash.com/photo-1596073419667-9d77d59f033f?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60" alt="Roses" class="product-image">
+                <div class="product-info">
+                    <h3>Classic Red Roses</h3>
+                    <span class="price">$45.00</span>
+                    <p>A dozen long-stemmed red roses.</p>
+                </div>
+                <button class="buy-btn">Add to Cart</button>
+            </div>
+
+            <div class="product-card">
+                <img src="https://images.unsplash.com/photo-1526047932273-341f2a7631f9?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60" alt="Peonies" class="product-image">
+                <div class="product-info">
+                    <h3>Pink Peony Arrangement</h3>
+                    <span class="price">$32.00</span>
+                    <p>Soft pink peonies in a glass vase.</p>
+                </div>
+                <button class="buy-btn">Add to Cart</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'u' || e.key === 'U') {
+                document.body.classList.toggle('fixed');
+            }
+        });
+    </script>
+</body>
+</html>

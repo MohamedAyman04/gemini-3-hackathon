@@ -18,7 +18,7 @@
     }
   },
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' http://localhost:5000 ws://localhost:5000 https://vibecheck-backend-2v2h.onrender.com wss://vibecheck-backend-2v2h.onrender.com https://gemini-3-hackathon.vercel.app;"
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' http://localhost:5000 ws://localhost:5000 https://* wss://*;"
   },
   "background": {
     "scripts": ["src/background.ts"],

@@ -7,6 +7,7 @@ import {
   Settings,
   PlayCircle,
   Activity,
+  LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
@@ -82,7 +83,22 @@ export function Sidebar() {
         </nav>
       </div>
 
-      <div className="border-t border-linen/5 p-4">
+      <div className="border-t border-linen/5 p-4 space-y-4">
+        <button
+          onClick={async () => {
+            try {
+              await import("@/lib/api").then((mod) => mod.logout());
+              window.location.href = "/login";
+            } catch (error) {
+              console.error("Logout failed:", error);
+            }
+          }}
+          className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate hover:bg-red-500/10 hover:text-red-500 transition-all duration-200 group"
+        >
+          <LogOut className="h-5 w-5 flex-shrink-0 transition-colors group-hover:text-red-500" />
+          Sign Out
+        </button>
+
         <div className="flex items-center gap-3 rounded-xl bg-linen/5 p-3">
           <div className="h-10 w-10 rounded-full bg-gradient-to-tr from-lavender to-periwinkle flex items-center justify-center text-linen font-black text-sm border-2 border-linen/10">
             {emailPrefix[0]?.toUpperCase()}

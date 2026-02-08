@@ -5,11 +5,7 @@ import { useAuth } from "./hooks/useAuth";
 import { useMissions } from "./hooks/useMissions";
 import { useSocket } from "./hooks/useSocket";
 import Image from "next/image";
-
-const BACKEND_URL =
-  import.meta.env.VITE_DASHBOARD_URL || "http://localhost:5000";
-const FRONTEND_URL =
-  import.meta.env.VITE_DASHBOARD_URL_CLIENT || "http://localhost:3000";
+import { REST_API_URL, APP_BASE_URL } from "./config";
 
 function App() {
   const {
@@ -45,6 +41,9 @@ function App() {
     isAudioEnabled,
     audioData,
     error,
+    devices,
+    selectedAudioId,
+    setSelectedAudioId,
 
     prepareStream,
   } = useMediaRecorder();
@@ -256,7 +255,7 @@ function App() {
       }
 
       // 2. Create Session on Backend
-      const response = await fetch(`${BACKEND_URL}/sessions`, {
+      const response = await fetch(`${REST_API_URL}/sessions`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -352,7 +351,7 @@ function App() {
       formData.append("logs", JSON.stringify(logs));
 
       const response = await fetch(
-        `${BACKEND_URL}/sessions/${currentSessionId}/finalize`,
+        `${REST_API_URL}/sessions/${currentSessionId}/finalize`,
         {
           method: "POST",
           credentials: "include",
@@ -436,7 +435,7 @@ function App() {
         </button>
 
         <p className="text-xs text-gray-500 mt-4">
-          Only works with active sessions
+          Only works with active session on {APP_BASE_URL}
         </p>
       </div>
     );
@@ -445,65 +444,73 @@ function App() {
   return (
     <div className="min-h-screen bg-linen text-midnight font-sans flex flex-col">
       {/* Header */}
-      <header className="flex items-center justify-between bg-midnight px-6 py-4 shadow-[0_4px_20px_rgba(0,0,0,0.3)] relative z-50">
-        <div className="flex items-center gap-4">
-          <div className="flex flex-col">
-            <div className="flex items-center flex-row justify-center">
-              <Image
-                src="/vibecheck2.svg"
-                alt="Logo"
-                width={48}
-                height={48}
-                style={{ position: "relative", left: "15px", bottom: "2px" }}
-              />
-              <h1 className="text-xl font-black tracking-tight leading-none uppercase text-linen">
-                ibeCheck
-              </h1>
+      {/* Header */}
+      <header className="w-full bg-midnight shadow-[0_4px_20px_rgba(0,0,0,0.3)] relative z-50">
+        <div className="w-full max-w-2xl mx-auto px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="flex flex-col">
+              <div className="flex items-center flex-row justify-center">
+                <Image
+                  src="/vibecheck2.svg"
+                  alt="Logo"
+                  width={40}
+                  height={40}
+                  style={{ position: "relative", bottom: "2px" }}
+                />
+                <h1 className="text-lg font-black tracking-tight leading-none uppercase text-linen ml-3">
+                  ibeCheck
+                </h1>
+              </div>
             </div>
-            <span className="text-[8px] font-bold text-linen/40 tracking-[0.3em] uppercase mt-1">
-              Autonomous QA
-            </span>
           </div>
-        </div>
-        <div className="flex items-center gap-3">
-          {isRecording && currentSessionId && (
-            <button
-              onClick={() =>
-                window.open(
-                  `${FRONTEND_URL}/live/${currentSessionId}`,
-                  "_blank",
-                )
-              }
-              className="text-[9px] font-black bg-lavender/20 text-lavender px-3 py-1.5 rounded-xl border border-lavender/30 hover:bg-lavender hover:text-white transition-all duration-300 flex items-center gap-1.5 uppercase tracking-wider"
-            >
-              <Target className="w-3 h-3" />
-              Live
-            </button>
-          )}
-          <div
-            className={`flex items-center gap-2 text-[10px] font-black px-3 py-1.5 rounded-xl transition-all duration-500 border ${
-              isRecording
-                ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.2)]"
-                : "bg-red-500/10 text-red-400 border-red-500/30"
-            }`}
-          >
+          <div className="flex items-center gap-3">
+            {isRecording && (
+              <div className="flex items-center gap-2 px-2 py-1 bg-blue-500/20 rounded-lg border border-blue-500/30">
+                <div className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
+                <span className="text-[9px] font-bold text-blue-300 uppercase tracking-wider">
+                  Sharing
+                </span>
+              </div>
+            )}
+            {isRecording && currentSessionId && (
+              <button
+                onClick={() =>
+                  window.open(
+                    `${APP_BASE_URL}/live/${currentSessionId}`,
+                    "_blank",
+                  )
+                }
+                className="text-[9px] font-black bg-lavender/20 text-lavender px-3 py-1.5 rounded-xl border border-lavender/30 hover:bg-lavender hover:text-white transition-all duration-300 flex items-center gap-1.5 uppercase tracking-wider"
+              >
+                <Target className="w-3 h-3" />
+                Live
+              </button>
+            )}
             <div
-              className={`w-1.5 h-1.5 rounded-full ${
+              className={`flex items-center gap-2 text-[10px] font-black px-3 py-1.5 rounded-xl transition-all duration-500 border ${
                 isRecording
-                  ? "bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.6)]"
-                  : "bg-red-400"
+                  ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.2)]"
+                  : "bg-red-500/10 text-red-400 border-red-500/30"
               }`}
-            />
-            {isRecording ? "ONLINE" : "OFFLINE"}
+            >
+              <div
+                className={`w-1.5 h-1.5 rounded-full ${
+                  isRecording
+                    ? "bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.6)]"
+                    : "bg-red-400"
+                }`}
+              />
+              {isRecording ? "ONLINE" : "OFFLINE"}
+            </div>
           </div>
         </div>
       </header>
 
       {/* Main Control */}
-      <main className="flex-1 flex flex-col items-center justify-center gap-8 py-8 relative">
+      <main className="flex-1 w-full max-w-md mx-auto flex flex-col items-center justify-center gap-8 py-8 px-6 relative">
         {completedSessionId ? (
-          <div className="flex flex-col items-center justify-center gap-6 text-center animate-in fade-in zoom-in duration-300">
-            <div className="w-20 h-20 bg-green-900/30 text-green-400 rounded-full flex items-center justify-center border-2 border-green-500/50 mb-2">
+          <div className="flex flex-col items-center justify-center gap-6 text-center animate-in fade-in zoom-in duration-300 w-full">
+            <div className="w-20 h-20 bg-green-50 text-green-500 rounded-full flex items-center justify-center border-4 border-green-100 mb-2 shadow-sm">
               <svg
                 className="w-10 h-10"
                 fill="none"
@@ -519,10 +526,10 @@ function App() {
               </svg>
             </div>
             <div>
-              <h2 className="text-xl font-bold text-white mb-2">
+              <h2 className="text-xl font-bold text-midnight mb-2">
                 Session Completed!
               </h2>
-              <p className="text-gray-400 text-sm max-w-[200px]">
+              <p className="text-gray-500 text-sm max-w-[200px] mx-auto">
                 Your session has been recorded and analyzed.
               </p>
             </div>
@@ -530,78 +537,76 @@ function App() {
             <button
               onClick={() =>
                 window.open(
-                  `${FRONTEND_URL}/sessions/${completedSessionId}`,
+                  `${APP_BASE_URL}/sessions/${completedSessionId}`,
                   "_blank",
                 )
               }
-              className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg font-medium transition-colors w-full flex items-center justify-center gap-2"
+              className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-xl font-bold uppercase tracking-wide transition-colors w-full flex items-center justify-center gap-2 shadow-lg hover:shadow-xl"
             >
               <Target className="w-4 h-4" />
-              View Session Report
+              View Report
             </button>
 
             <button
               onClick={() => setCompletedSessionId(null)}
-              className="text-gray-400 hover:text-white text-sm underline decoration-dotted"
+              className="text-gray-500 hover:text-purple-600 text-sm font-medium underline decoration-dotted"
             >
               Start New Session
             </button>
           </div>
         ) : (
           <>
-            {/* Connection Ring */}
+            {/* Start/Stop Button */}
             <div className="relative group">
-              <div
-                className={`absolute -inset-1 rounded-full blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200 ${isRecording ? "bg-gradient-to-r from-red-600 to-orange-600" : "bg-lavender"}`}
-              ></div>
               <button
                 onClick={toggleConnection}
                 disabled={isEnding}
-                className={`relative w-44 h-44 rounded-full flex flex-col items-center justify-center bg-white border-[6px] transition-all duration-300 shadow-2xl ${isRecording ? "border-red-500 shadow-red-500/20" : "border-lavender hover:border-periwinkle"}`}
+                className={`
+                    w-40 h-40 rounded-full flex flex-col items-center justify-center shadow-xl transition-all duration-500 border-[6px]
+                    ${
+                      isRecording
+                        ? "bg-white border-red-500 text-red-500 hover:bg-red-50 shadow-red-500/20"
+                        : "bg-white border-indigo-500 text-indigo-600 hover:bg-indigo-50 shadow-indigo-500/20 hover:shadow-indigo-500/30"
+                    }
+                    ${isEnding ? "opacity-80 cursor-not-allowed border-gray-400 text-gray-400" : ""}
+                  `}
               >
                 {isEnding ? (
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-current"></div>
                 ) : isRecording ? (
                   <>
-                    <div className="w-12 h-12 bg-red-500 rounded-lg animate-pulse mb-2" />
-                    <span className="text-sm font-bold text-red-500">STOP</span>
+                    <div className="w-10 h-10 bg-red-500 rounded-lg animate-pulse mb-2" />
+                    <span className="text-sm font-bold tracking-widest">
+                      STOP
+                    </span>
                   </>
                 ) : (
                   <>
-                    <Radio className="w-12 h-12 text-purple-500" />
-                    <span className="mt-2 text-sm font-semibold tracking-widest uppercase text-gray-400">
-                      Start
+                    <Radio className="w-10 h-10 mb-2" />
+                    <span className="text-sm font-bold tracking-widest">
+                      START
                     </span>
                   </>
                 )}
               </button>
+              {/* Subtle Glow Effect */}
+              <div
+                className={`absolute -inset-4 rounded-full blur-2xl opacity-20 -z-10 transition-colors duration-500 ${isRecording ? "bg-red-500" : "bg-indigo-500"}`}
+              ></div>
             </div>
-
-            {/* Dashboard Errors */}
-            {missionsError && (
-              <div className="text-red-400 text-[10px] bg-red-900/20 px-3 py-1.5 rounded-xl border border-red-500/30 mb-2 flex items-center justify-between gap-2">
-                <span>{missionsError}</span>
-                <button
-                  onClick={refreshMissions}
-                  className="underline font-bold uppercase"
-                >
-                  Retry
-                </button>
-              </div>
-            )}
 
             {/* Session Error */}
             {sessionError && (
-              <div className="text-red-400 text-xs bg-red-900/20 px-3 py-1 rounded border border-red-800/50">
+              <div className="text-red-600 text-xs bg-red-50 px-4 py-3 rounded-xl border border-red-200 font-medium w-full text-center shadow-sm">
                 {sessionError}
               </div>
             )}
 
-            {/* Audio Visualizer Placeholder */}
-            <div className="w-full h-12 bg-white/50 rounded-2xl flex items-center justify-center gap-1 overflow-hidden border border-midnight/5 p-2 shadow-inner">
+            {/* Audio Visualizer */}
+            <div className="w-full h-14 bg-white rounded-2xl flex items-center justify-center gap-1 overflow-hidden border border-gray-100 p-3 shadow-sm">
               {error && (
                 <div className="flex flex-col items-center gap-2 w-full">
-                  <div className="text-red-500 text-xs text-center">
+                  <div className="text-red-500 text-xs text-center font-medium">
                     {error}
                   </div>
                   {error.includes("denied") && (
@@ -612,7 +617,7 @@ function App() {
                           "_blank",
                         )
                       }
-                      className="text-xs bg-gray-800 hover:bg-gray-700 text-white px-3 py-1 rounded border border-gray-600 transition-colors"
+                      className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-800 px-3 py-1 rounded border border-gray-300 transition-colors"
                     >
                       Open in Tab to Fix
                     </button>
@@ -620,68 +625,91 @@ function App() {
                 </div>
               )}
               {!error && isRecording ? (
-                Array.from({ length: 20 }).map((_, i) => {
+                Array.from({ length: 24 }).map((_, i) => {
                   const value = audioData[i] || 0;
-                  const height = Math.max(4, (value / 255) * 100);
+                  const height = Math.max(15, (value / 255) * 100);
 
                   return (
                     <div
                       key={i}
-                      className="w-1 bg-lavender rounded-t-sm transition-all duration-75"
+                      className="w-1.5 bg-indigo-500 rounded-full transition-all duration-75"
                       style={{
                         height: `${height}%`,
-                        opacity: 0.5 + value / 510,
+                        opacity: 0.3 + value / 510,
                       }}
                     />
                   );
                 })
               ) : (
-                <span className="text-midnight/40 text-[10px] font-bold uppercase tracking-widest">
-                  Audio Inactive
-                </span>
+                <div className="flex items-center gap-2 opacity-40">
+                  <div className="w-2 h-2 rounded-full bg-gray-400"></div>
+                  <span className="text-gray-400 text-[10px] font-bold uppercase tracking-widest ">
+                    Ready to Record
+                  </span>
+                </div>
               )}
             </div>
 
             {/* Controls Grid */}
-            <div className="flex flex-col gap-3 w-full max-w-sm">
+            <div className="flex flex-col gap-4 w-full">
               {/* Mission Selection */}
               {!isRecording && (
-                <div className="w-full space-y-2">
+                <div className="w-full space-y-1">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider ml-1">
+                    Select Mission
+                  </label>
                   {isCreating ? (
-                    <div className="bg-gray-800 p-3 rounded-lg border border-gray-700 space-y-2">
+                    <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm space-y-3">
                       <input
                         type="text"
                         placeholder="Mission Name"
-                        className="w-full bg-gray-900 text-sm p-2 rounded border border-gray-700 focus:border-purple-500 outline-none"
+                        className="w-full bg-gray-50 text-sm p-3 rounded-xl border border-gray-200 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-all placeholder:text-gray-400"
                         value={newMissionName}
                         onChange={(e) => setNewMissionName(e.target.value)}
                       />
                       <input
                         type="text"
                         placeholder="Context (Optional)"
-                        className="w-full bg-gray-900 text-sm p-2 rounded border border-gray-700 focus:border-purple-500 outline-none"
+                        className="w-full bg-gray-50 text-sm p-3 rounded-xl border border-gray-200 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-all placeholder:text-gray-400"
                         value={newMissionContext}
                         onChange={(e) => setNewMissionContext(e.target.value)}
                       />
-                      <button
-                        onClick={() => setIsCreating(false)}
-                        className="text-xs text-gray-400 hover:text-white"
-                      >
-                        Cancel
-                      </button>
+                      <div className="flex justify-end gap-2">
+                        <button
+                          onClick={() => setIsCreating(false)}
+                          className="text-xs text-gray-500 hover:text-gray-800 font-medium px-2 py-1"
+                        >
+                          Cancel
+                        </button>
+                      </div>
                     </div>
                   ) : (
                     <div className="flex items-center gap-2 w-full">
-                      <div className="p-4 bg-midnight text-linen border border-linen/20 rounded-2xl shadow-sm">
-                        <Target className="w-6 h-6" />
+                      <div className="p-3.5 bg-white text-indigo-600 border border-gray-200 rounded-xl shadow-sm">
+                        <Target className="w-5 h-5" />
                       </div>
-                      <div className="relative flex-1">
+                      <div className="relative flex-1 group">
+                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400 group-hover:text-indigo-500 transition-colors">
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <path d="m6 9 6 6 6-6" />
+                          </svg>
+                        </div>
                         <select
                           value={selectedMissionId}
                           onChange={(e) => {
                             if (e.target.value === "NEW") {
                               window.open(
-                                `${FRONTEND_URL}/missions/new`,
+                                `${APP_BASE_URL}/missions/new`,
                                 "_blank",
                               );
                             } else {
@@ -689,14 +717,14 @@ function App() {
                             }
                           }}
                           disabled={missionsLoading}
-                          className="w-full bg-midnight text-sm text-linen rounded-2xl border border-linen/20 px-4 py-4 focus:outline-none focus:border-lavender appearance-none truncate disabled:opacity-50 font-bold shadow-lg"
+                          className="w-full bg-white text-sm text-gray-800 rounded-xl border border-gray-200 pl-4 pr-10 py-3.5 focus:outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100 appearance-none truncate disabled:opacity-50 font-semibold shadow-sm hover:shadow-md transition-all cursor-pointer"
                         >
-                          <option value="" className="bg-midnight">
-                            Select a Mission...
+                          <option value="" className="text-gray-400">
+                            Choose a mission...
                           </option>
                           <option
                             value="NEW"
-                            className="bg-midnight text-lavender font-black"
+                            className="text-indigo-600 font-bold bg-indigo-50"
                           >
                             + Create New Mission
                           </option>
@@ -704,7 +732,7 @@ function App() {
                             <option
                               key={mission.id}
                               value={mission.id}
-                              className="bg-midnight"
+                              className="text-gray-900"
                             >
                               {mission.name}
                             </option>
@@ -717,17 +745,60 @@ function App() {
               )}
 
               {/* Audio Input */}
-              <div className="flex items-center gap-2 w-full">
-                <button
-                  onClick={toggleAudio}
-                  className={`p-4 rounded-2xl transition-colors flex-shrink-0 border shadow-sm ${!isAudioEnabled ? "bg-red-500/10 text-red-500 hover:bg-red-500/20 border-red-500/50" : "bg-midnight text-linen hover:text-white border-linen/20 hover:border-linen/40"}`}
-                >
-                  {!isAudioEnabled ? (
-                    <MicOff className="w-6 h-6" />
-                  ) : (
-                    <Mic className="w-6 h-6" />
-                  )}
-                </button>
+              <div className="w-full space-y-1">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider ml-1">
+                  Input Source
+                </label>
+                <div className="flex items-center gap-2 w-full">
+                  <button
+                    onClick={toggleAudio}
+                    className={`p-3.5 rounded-xl transition-colors flex-shrink-0 border shadow-sm ${!isAudioEnabled ? "bg-red-50 text-red-500 hover:bg-red-100 border-red-200" : "bg-white text-indigo-600 hover:text-indigo-700 border-gray-200 hover:border-gray-300"}`}
+                  >
+                    {!isAudioEnabled ? (
+                      <MicOff className="w-5 h-5" />
+                    ) : (
+                      <Mic className="w-5 h-5" />
+                    )}
+                  </button>
+
+                  {/* Microphone Selection */}
+                  <div className="relative flex-1 group">
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400 group-hover:text-indigo-500 transition-colors">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="m6 9 6 6 6-6" />
+                      </svg>
+                    </div>
+                    <select
+                      value={selectedAudioId}
+                      onChange={(e) => setSelectedAudioId(e.target.value)}
+                      className="w-full bg-white text-sm text-gray-800 rounded-xl border border-gray-200 pl-4 pr-10 py-3.5 focus:outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100 appearance-none truncate font-semibold shadow-sm hover:shadow-md transition-all cursor-pointer disabled:bg-gray-50 disabled:text-gray-400"
+                      disabled={!isAudioEnabled}
+                    >
+                      {devices
+                        .filter((device) => device.kind === "audioinput")
+                        .map((device) => (
+                          <option
+                            key={device.deviceId}
+                            value={device.deviceId}
+                            className="text-gray-900"
+                          >
+                            {device.label ||
+                              `Microphone ${device.deviceId.slice(0, 5)}...`}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                </div>
               </div>
             </div>
           </>
@@ -735,43 +806,45 @@ function App() {
       </main>
 
       {/* Live Chat / Events */}
-      <section className="bg-white rounded-[40px] p-6 border border-midnight/5 h-64 flex flex-col shadow-xl">
-        <div className="flex items-center gap-3 mb-4 text-midnight border-b border-midnight/5 pb-4">
-          <Activity className="w-5 h-5 text-lavender" />
-          <h3 className="text-[10px] font-black uppercase tracking-[0.3em]">
-            Live Interaction
-          </h3>
-        </div>
+      <section className="w-full max-w-md mx-auto px-6 pb-6">
+        <div className="bg-white rounded-[32px] p-6 border border-gray-200 h-64 flex flex-col shadow-lg">
+          <div className="flex items-center gap-3 mb-4 text-midnight border-b border-gray-100 pb-4">
+            <Activity className="w-5 h-5 text-indigo-500" />
+            <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-500">
+              Live Interaction
+            </h3>
+          </div>
 
-        <div className="flex-1 overflow-y-auto space-y-3 custom-scrollbar px-1">
-          {messages.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-gray-600 space-y-2 opacity-50">
-              <Activity className="w-8 h-8" />
-              <p className="text-xs text-center">Waiting for activity...</p>
-            </div>
-          ) : (
-            messages.map((msg, i) => (
-              <div
-                key={i}
-                className={`flex ${msg.source === "ai" ? "justify-start" : "justify-end"}`}
-              >
-                <div
-                  className={`max-w-[85%] text-xs p-2 rounded-lg ${
-                    msg.source === "ai"
-                      ? "bg-purple-900/30 border border-purple-800/50 text-purple-200 rounded-tl-none"
-                      : "bg-gray-800 border border-gray-700 text-gray-300 rounded-tr-none"
-                  }`}
-                >
-                  {msg.source === "ai" && (
-                    <span className="block text-[10px] text-purple-400 font-bold mb-1">
-                      GEMINI
-                    </span>
-                  )}
-                  {msg.text}
-                </div>
+          <div className="flex-1 overflow-y-auto space-y-3 custom-scrollbar px-1">
+            {messages.length === 0 ? (
+              <div className="h-full flex flex-col items-center justify-center text-gray-400 space-y-2 opacity-50">
+                <Activity className="w-8 h-8" />
+                <p className="text-xs text-center">Waiting for activity...</p>
               </div>
-            ))
-          )}
+            ) : (
+              messages.map((msg, i) => (
+                <div
+                  key={i}
+                  className={`flex ${msg.source === "ai" ? "justify-start" : "justify-end"}`}
+                >
+                  <div
+                    className={`max-w-[85%] text-xs p-3 rounded-2xl ${
+                      msg.source === "ai"
+                        ? "bg-indigo-50 text-indigo-800 rounded-tl-none border border-indigo-100"
+                        : "bg-gray-100 text-gray-700 rounded-tr-none border border-gray-200"
+                    }`}
+                  >
+                    {msg.source === "ai" && (
+                      <span className="block text-[9px] text-indigo-500 font-black mb-1 tracking-wider">
+                        GEMINI
+                      </span>
+                    )}
+                    {msg.text}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </div>
       </section>
     </div>

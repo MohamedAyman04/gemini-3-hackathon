@@ -16,7 +16,7 @@ import {
 import Link from "next/link";
 import Image from "next/image";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+import { signup } from "@/lib/api";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -37,25 +37,11 @@ export default function SignupPage() {
     setIsLoading(true);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/signup`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ name, email, password }),
-      });
-
-      if (response.ok) {
-        const user = await response.json();
-        // Notify the extension
-        window.postMessage({ type: "VIBECHECK_AUTH_SUCCESS", user }, "*");
-        router.push("/");
-      } else {
-        const error = await response.json();
-        alert(error.message || "Signup failed");
-      }
-    } catch (error) {
+      await signup({ name, email, password });
+      router.push("/");
+    } catch (error: any) {
       console.error("Signup error:", error);
-      alert("An error occurred during signup");
+      alert(error.message || "Signup failed");
     } finally {
       setIsLoading(false);
     }

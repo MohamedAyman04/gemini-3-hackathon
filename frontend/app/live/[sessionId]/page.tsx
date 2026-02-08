@@ -24,6 +24,7 @@ import { io, Socket } from "socket.io-client";
 import "rrweb-player/dist/style.css";
 import { Sidebar } from "@/components/layout/Sidebar";
 import Image from "next/image";
+import { getSession } from "@/lib/api";
 
 export default function LiveSession({
   params,
@@ -54,11 +55,7 @@ export default function LiveSession({
 
   // Fetch session details
   useEffect(() => {
-    fetch(
-      `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/sessions/${sessionId}`,
-      { credentials: "include" },
-    )
-      .then((res) => res.json())
+    getSession(sessionId)
       .then((data) => {
         setSessionData(data);
         if (data.status === "COMPLETED") {
@@ -70,7 +67,7 @@ export default function LiveSession({
 
   useEffect(() => {
     const socket = io(
-      process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000",
+      process.env.NEXT_PUBLIC_WS_URL || "http://localhost:5000",
     );
     socketRef.current = socket;
 
@@ -422,10 +419,10 @@ export default function LiveSession({
                           <div className="flex items-center justify-between">
                             <span
                               className={`text-[9px] font-black px-1.5 py-0.5 rounded ${log.source === "AI"
-                                  ? "bg-lavender/10 text-lavender"
-                                  : log.source === "SYSTEM"
-                                    ? "bg-midnight/10 text-midnight"
-                                    : "bg-emerald-100 text-emerald-600"
+                                ? "bg-lavender/10 text-lavender"
+                                : log.source === "SYSTEM"
+                                  ? "bg-midnight/10 text-midnight"
+                                  : "bg-emerald-100 text-emerald-600"
                                 }`}
                             >
                               {log.source}

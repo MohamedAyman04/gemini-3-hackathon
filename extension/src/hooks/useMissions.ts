@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import type { Mission } from "../types";
+import { REST_API_URL } from "../config";
 
-const DASHBOARD_URL =
-  import.meta.env.VITE_DASHBOARD_URL || "http://localhost:5000";
+const DASHBOARD_URL = REST_API_URL;
 
 interface UseMissionsReturn {
   missions: Mission[];
