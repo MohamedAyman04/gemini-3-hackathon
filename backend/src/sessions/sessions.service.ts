@@ -65,37 +65,47 @@ export class SessionsService {
     session.logs = logs;
     session.status = 'COMPLETED';
 
-    // Generate Summary
+    // Save the initial state (video uploaded, status completed)
+    const savedSession = await this.sessionsRepository.save(session);
+
+    // Trigger AI Analysis & Queue Jobs in the background (Fire-and-forget)
+    this.runBackgroundAnalysis(savedSession, filepath).catch((e) =>
+      console.error(`[SessionsService] Background analysis failed for session ${id}:`, e),
+    );
+
+    return savedSession;
+  }
+
+  private async runBackgroundAnalysis(session: Session, videoPath: string) {
+    // 1. Generate Summary
     try {
-      // For now we don't have a separate transcript field, assuming logs might contain it or we just use logs
-      // In a real scenario, we'd capture the transcript from the live session and store it.
-      // Since we don't have transcript storage yet, we'll pass empty string or extract from logs if possible.
       const summary = await this.geminiService.generateSessionSummary(
         session.transcript || '',
-        logs,
+        session.logs,
         session.issues || [],
       );
-      session.analysis = { summary };
+
+      // Update session with summary
+      await this.sessionsRepository.update(session.id, {
+        analysis: { summary },
+      } as any);
     } catch (e) {
-      console.error('Failed to generate summary', e);
+      console.error(`[SessionsService] Failed to generate summary for ${session.id}`, e);
     }
 
-    // Trigger advanced issue processing (Screenshots, Scripts, Detailed GitHub Issues)
+    // 2. Queue Advanced Processing
     if (session.issues && session.issues.length > 0) {
-      // Need absolute path for the worker
-      const absoluteVideoPath = path.resolve(filepath);
+      const absoluteVideoPath = require('path').resolve(videoPath);
       await this.analysisQueue.add('process_session_issues', {
         sessionId: session.id,
         issues: session.issues || [],
         videoPath: absoluteVideoPath,
         transcript: session.transcript || '',
-        logs: session.logs || [], // Dom events if needed for bug repro
+        logs: session.logs || [],
         url: session.mission?.url,
-        sessionStartTime: session.createdAt.getTime()
+        sessionStartTime: session.createdAt.getTime(),
       });
     }
-
-    return this.sessionsRepository.save(session);
   }
 
   async appendEvents(sessionId: string, newEvents: any[]) {

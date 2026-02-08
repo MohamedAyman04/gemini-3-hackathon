@@ -1,7 +1,8 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
+import { API_BASE_URL } from '../config';
 
-const DASHBOARD_URL = import.meta.env.VITE_DASHBOARD_URL || 'http://localhost:5000';
+const DASHBOARD_URL = API_BASE_URL;
 
 interface UseSocketReturn {
     socket: Socket | null;

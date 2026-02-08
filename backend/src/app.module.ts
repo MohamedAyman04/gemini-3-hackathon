@@ -31,12 +31,15 @@ import { TrelloModule } from './trello/trello.module';
         url: process.env.DATABASE_URL,
         autoLoadEntities: true,
         synchronize: true,
-        ssl: true,
-        extra: {
-          ssl: {
-            rejectUnauthorized: false, // Required for Render's self-signed certificates
-          },
-        },
+        ssl: process.env.NODE_ENV === 'production',
+        extra:
+          process.env.NODE_ENV === 'production'
+            ? {
+              ssl: {
+                rejectUnauthorized: false, // Required for Render's self-signed certificates
+              },
+            }
+            : undefined,
       }),
       inject: [ConfigService],
     }),
@@ -64,4 +67,4 @@ import { TrelloModule } from './trello/trello.module';
   controllers: [AppController],
   providers: [AppService, GeminiService],
 })
-export class AppModule {}
+export class AppModule { }

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { APP_BASE_URL, API_BASE_URL, AUTH_COOKIE_NAME } from "../config";
 
 export interface User {
   id: string;
@@ -14,9 +15,8 @@ interface AuthState {
   error: string | null;
 }
 
-const DASHBOARD_URL =
-  import.meta.env.VITE_DASHBOARD_URL_CLIENT || "http://localhost:3000";
-const AUTH_COOKIE_NAME = import.meta.env.VITE_AUTH_COOKIE_NAME || "connect.sid";
+const DASHBOARD_URL = APP_BASE_URL;
+const COOKIE_DOMAIN_URL = API_BASE_URL; // Cookie is set on Backend Domain in production!
 
 export const useAuth = () => {
   const [state, setState] = useState<AuthState>({
@@ -31,8 +31,9 @@ export const useAuth = () => {
     try {
       // 1. Check for the cookie
       // Note: This requires "cookies" permission and host permissions for the URL
+      // explicit check on API_BASE_URL because that's where the backend sets the cookie
       const cookie = await chrome.cookies.get({
-        url: DASHBOARD_URL,
+        url: COOKIE_DOMAIN_URL,
         name: AUTH_COOKIE_NAME,
       });
 
@@ -101,10 +102,13 @@ export const useAuth = () => {
       changeInfo: chrome.cookies.CookieChangeInfo,
     ) => {
       if (
-        changeInfo.cookie.name === AUTH_COOKIE_NAME &&
-        changeInfo.cookie.domain.includes("localhost")
+        changeInfo.cookie.name === AUTH_COOKIE_NAME
       ) {
-        checkAuth();
+        // Check if the cookie domain is relevant to our API Backend URL (where auth happens)
+        const apiDomain = new URL(COOKIE_DOMAIN_URL).hostname;
+        if (changeInfo.cookie.domain.includes(apiDomain) || apiDomain.includes(changeInfo.cookie.domain.replace(/^\./, ''))) {
+          checkAuth();
+        }
       }
     };
 
