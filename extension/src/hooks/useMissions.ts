@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import type { Mission } from "../types";
 import { REST_API_URL } from "../config";
+import { getExtensionSessionId } from "../utils/cookie";
 
 const DASHBOARD_URL = REST_API_URL;
 
@@ -25,8 +26,12 @@ export const useMissions = (): UseMissionsReturn => {
     setIsLoading(true);
     setError(null);
     try {
+      const sessionId = await getExtensionSessionId();
+      const headers: HeadersInit = sessionId ? { "x-session-id": sessionId } : {};
+
       const response = await fetch(`${DASHBOARD_URL}/missions`, {
         credentials: "include",
+        headers,
       });
       if (!response.ok) {
         throw new Error(`Failed to fetch missions: ${response.statusText}`);
@@ -52,9 +57,15 @@ export const useMissions = (): UseMissionsReturn => {
     refresh: fetchMissions,
     createMission: async (name: string, context: string, url: string) => {
       try {
+        const sessionId = await getExtensionSessionId();
+        const headers: HeadersInit = {
+          "Content-Type": "application/json",
+          ...(sessionId ? { "x-session-id": sessionId } : {})
+        };
+
         const response = await fetch(`${DASHBOARD_URL}/missions`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers,
           credentials: "include",
           body: JSON.stringify({ name, context, url, happyPath: [] }),
         });

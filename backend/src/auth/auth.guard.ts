@@ -8,11 +8,16 @@ import { AuthService } from './auth.service';
 
 @Injectable()
 export class AuthGuard implements CanActivate {
-  constructor(private authService: AuthService) {}
+  constructor(private authService: AuthService) { }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
-    const userId = request.cookies['connect.sid'];
+    let userId = request.cookies['connect.sid'];
+
+    // Fallback: Check header for extension requests where cookies might be blocked/partitioned
+    if (!userId) {
+      userId = request.headers['x-session-id'];
+    }
 
     if (!userId) {
       throw new UnauthorizedException('No session cookie found');
