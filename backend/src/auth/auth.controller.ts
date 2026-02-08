@@ -6,13 +6,15 @@ import {
   Get,
   Req,
   UnauthorizedException,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import type { Response, Request } from 'express';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(private readonly authService: AuthService) { }
 
   @Post('login')
   async login(
@@ -65,5 +67,16 @@ export class AuthController {
       throw new UnauthorizedException();
     }
     return user;
+  }
+
+  @Post('logout')
+  @HttpCode(HttpStatus.OK)
+  async logout(@Res({ passthrough: true }) response: Response) {
+    response.clearCookie('connect.sid', {
+      httpOnly: false,
+      secure: true,
+      sameSite: 'none',
+    });
+    return { message: 'Logged out successfully' };
   }
 }
