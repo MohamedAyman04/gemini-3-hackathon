@@ -6,6 +6,7 @@ import { useMissions } from "./hooks/useMissions";
 import { useSocket } from "./hooks/useSocket";
 import Image from "next/image";
 import { REST_API_URL, APP_BASE_URL } from "./config";
+import { getExtensionSessionId } from "./utils/cookie";
 
 function App() {
   const {
@@ -253,11 +254,15 @@ function App() {
       }
 
       // 2. Create Session on Backend
+      const sessionId = await getExtensionSessionId();
+      const headers: HeadersInit = {
+        "Content-Type": "application/json",
+        ...(sessionId ? { "x-session-id": sessionId } : {}),
+      };
+
       const response = await fetch(`${REST_API_URL}/sessions`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers,
         credentials: "include",
         body: JSON.stringify({ missionId: missionId }),
       });
@@ -348,10 +353,14 @@ function App() {
       }
       formData.append("logs", JSON.stringify(logs));
 
+      const finalizeSessionId = await getExtensionSessionId();
+      const finalizeHeaders: HeadersInit = finalizeSessionId ? { "x-session-id": finalizeSessionId } : {};
+
       const response = await fetch(
         `${REST_API_URL}/sessions/${currentSessionId}/finalize`,
         {
           method: "POST",
+          headers: finalizeHeaders,
           credentials: "include",
           body: formData,
         },
@@ -486,14 +495,14 @@ function App() {
             )}
             <div
               className={`flex items-center gap-2 text-[10px] font-black px-3 py-1.5 rounded-xl transition-all duration-500 border ${isRecording
-                  ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.2)]"
-                  : "bg-red-500/10 text-red-400 border-red-500/30"
+                ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.2)]"
+                : "bg-red-500/10 text-red-400 border-red-500/30"
                 }`}
             >
               <div
                 className={`w-1.5 h-1.5 rounded-full ${isRecording
-                    ? "bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.6)]"
-                    : "bg-red-400"
+                  ? "bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.6)]"
+                  : "bg-red-400"
                   }`}
               />
               {isRecording ? "ONLINE" : "OFFLINE"}
@@ -824,8 +833,8 @@ function App() {
                 >
                   <div
                     className={`max-w-[85%] text-xs p-3 rounded-2xl ${msg.source === "ai"
-                        ? "bg-indigo-50 text-indigo-800 rounded-tl-none border border-indigo-100"
-                        : "bg-gray-100 text-gray-700 rounded-tr-none border border-gray-200"
+                      ? "bg-indigo-50 text-indigo-800 rounded-tl-none border border-indigo-100"
+                      : "bg-gray-100 text-gray-700 rounded-tr-none border border-gray-200"
                       }`}
                   >
                     {msg.source === "ai" && (
