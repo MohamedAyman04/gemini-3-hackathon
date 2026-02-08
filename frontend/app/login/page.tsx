@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/Card";
 import Image from "next/image";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+import { login } from "@/lib/api";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -29,21 +29,11 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ email, password }),
-      });
-
-      if (response.ok) {
-        router.push("/");
-      } else {
-        alert("Login failed");
-      }
+      await login({ email, password });
+      router.push("/");
     } catch (error) {
       console.error("Login error:", error);
-      alert("An error occurred during login");
+      alert("Login failed");
     } finally {
       setIsLoading(false);
     }

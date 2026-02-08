@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import type { Mission } from "../types";
-import { API_BASE_URL } from "../config";
+import { REST_API_URL } from "../config";
 
-const DASHBOARD_URL = API_BASE_URL;
+const DASHBOARD_URL = REST_API_URL;
 
 interface UseMissionsReturn {
   missions: Mission[];

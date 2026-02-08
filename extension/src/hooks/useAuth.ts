@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { APP_BASE_URL, API_BASE_URL, AUTH_COOKIE_NAME } from "../config";
+import { APP_BASE_URL, AUTH_COOKIE_NAME } from "../config";
 
 export interface User {
   id: string;
@@ -16,7 +16,7 @@ interface AuthState {
 }
 
 const DASHBOARD_URL = APP_BASE_URL;
-const COOKIE_DOMAIN_URL = API_BASE_URL; // Cookie is set on Backend Domain in production!
+const COOKIE_DOMAIN_URL = APP_BASE_URL; // Cookie is set on Frontend Domain (Vercel) via Proxy
 
 export const useAuth = () => {
   const [state, setState] = useState<AuthState>({

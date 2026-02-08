@@ -1,8 +1,8 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { API_BASE_URL } from '../config';
+import { WS_API_URL } from '../config';
 
-const DASHBOARD_URL = API_BASE_URL;
+const DASHBOARD_URL = WS_API_URL;
 
 interface UseSocketReturn {
     socket: Socket | null;

@@ -13,7 +13,7 @@ import { useAuth } from "./hooks/useAuth";
 import { useMissions } from "./hooks/useMissions";
 import { useSocket } from "./hooks/useSocket";
 import Image from "next/image";
-import { API_BASE_URL, APP_BASE_URL } from "./config";
+import { REST_API_URL, APP_BASE_URL } from "./config";
 
 function App() {
   const { missions, isLoading: missionsLoading, createMission } = useMissions();
@@ -250,7 +250,7 @@ function App() {
       }
 
       // 2. Create Session on Backend
-      const response = await fetch(`${API_BASE_URL}/sessions`, {
+      const response = await fetch(`${REST_API_URL}/sessions`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -346,7 +346,7 @@ function App() {
       formData.append("logs", JSON.stringify(logs));
 
       const response = await fetch(
-        `${API_BASE_URL}/sessions/${currentSessionId}/finalize`,
+        `${REST_API_URL}/sessions/${currentSessionId}/finalize`,
         {
           method: "POST",
           credentials: "include",

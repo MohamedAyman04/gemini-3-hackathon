@@ -1,4 +1,32 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+export const API_BASE_URL = "/api";
+
+export async function login(data: { email: string; password: string }) {
+  const response = await fetch(`${API_BASE_URL}/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    throw new Error("Login failed");
+  }
+  return response.json();
+}
+
+export async function signup(data: { name: string; email: string; password: string }) {
+  const response = await fetch(`${API_BASE_URL}/auth/signup`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    throw new Error("Signup failed");
+  }
+  return response.json();
+}
 
 export async function createMission(data: {
   name: string;
