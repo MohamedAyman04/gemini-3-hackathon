@@ -1,6 +1,8 @@
 "use client";
 
+
 import { useState } from "react";
+import { createMission } from "@/lib/api";
 import { useRouter } from "next/navigation";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -30,26 +32,13 @@ export default function NewMissionPage() {
     trelloToken: "",
   });
 
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
-      console.log("url:", process.env.NEXT_PUBLIC_API_URL);
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/missions`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify(formData),
-        },
-      );
-
-      if (response.ok) {
-        router.push("/");
-      } else {
-        alert("Failed to create mission");
-      }
+      await createMission(formData);
+      router.push("/");
     } catch (error) {
       console.error("Error creating mission:", error);
       alert("Error creating mission");
@@ -190,11 +179,10 @@ export default function NewMissionPage() {
                                 integrationType: type as any,
                               })
                             }
-                            className={`flex-1 py-2 px-4 rounded-lg border text-sm font-bold transition-all ${
-                              formData.integrationType === type
-                                ? "bg-primary border-primary text-primary-foreground shadow-lg"
-                                : "bg-background border-border text-muted-foreground hover:border-primary/50"
-                            }`}
+                            className={`flex-1 py-2 px-4 rounded-lg border text-sm font-bold transition-all ${formData.integrationType === type
+                              ? "bg-primary border-primary text-primary-foreground shadow-lg"
+                              : "bg-background border-border text-muted-foreground hover:border-primary/50"
+                              }`}
                           >
                             {type.charAt(0).toUpperCase() + type.slice(1)}
                           </button>

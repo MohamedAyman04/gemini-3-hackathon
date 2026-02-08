@@ -32,6 +32,10 @@ export async function createMission(data: {
   name: string;
   url: string;
   context: string;
+  githubToken?: string;
+  integrationType?: string;
+  jiraToken?: string;
+  trelloToken?: string;
 }) {
   const response = await fetch(`${API_BASE_URL}/missions`, {
     method: "POST",
