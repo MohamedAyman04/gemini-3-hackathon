@@ -30,7 +30,8 @@ export class AuthController {
       secure: true,
       sameSite: 'none',
       maxAge: 3600000 * 24 * 7,
-    });
+      partitioned: true,
+    } as any);
 
     return user;
   }
@@ -51,7 +52,8 @@ export class AuthController {
       secure: true,
       sameSite: 'none',
       maxAge: 3600000 * 24 * 7,
-    });
+      partitioned: true,
+    } as any);
 
     return user;
   }
@@ -76,7 +78,8 @@ export class AuthController {
       httpOnly: false,
       secure: true,
       sameSite: 'none',
-    });
+      partitioned: true,
+    } as any);
     return { message: 'Logged out successfully' };
   }
 }
