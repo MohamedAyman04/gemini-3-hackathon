@@ -12,8 +12,6 @@ function App() {
     missions,
     isLoading: missionsLoading,
     createMission,
-    error: missionsError,
-    refresh: refreshMissions,
   } = useMissions();
   const {
     isAuthenticated,
@@ -487,18 +485,16 @@ function App() {
               </button>
             )}
             <div
-              className={`flex items-center gap-2 text-[10px] font-black px-3 py-1.5 rounded-xl transition-all duration-500 border ${
-                isRecording
+              className={`flex items-center gap-2 text-[10px] font-black px-3 py-1.5 rounded-xl transition-all duration-500 border ${isRecording
                   ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.2)]"
                   : "bg-red-500/10 text-red-400 border-red-500/30"
-              }`}
+                }`}
             >
               <div
-                className={`w-1.5 h-1.5 rounded-full ${
-                  isRecording
+                className={`w-1.5 h-1.5 rounded-full ${isRecording
                     ? "bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.6)]"
                     : "bg-red-400"
-                }`}
+                  }`}
               />
               {isRecording ? "ONLINE" : "OFFLINE"}
             </div>
@@ -563,11 +559,10 @@ function App() {
                 disabled={isEnding}
                 className={`
                     w-40 h-40 rounded-full flex flex-col items-center justify-center shadow-xl transition-all duration-500 border-[6px]
-                    ${
-                      isRecording
-                        ? "bg-white border-red-500 text-red-500 hover:bg-red-50 shadow-red-500/20"
-                        : "bg-white border-indigo-500 text-indigo-600 hover:bg-indigo-50 shadow-indigo-500/20 hover:shadow-indigo-500/30"
-                    }
+                    ${isRecording
+                    ? "bg-white border-red-500 text-red-500 hover:bg-red-50 shadow-red-500/20"
+                    : "bg-white border-indigo-500 text-indigo-600 hover:bg-indigo-50 shadow-indigo-500/20 hover:shadow-indigo-500/30"
+                  }
                     ${isEnding ? "opacity-80 cursor-not-allowed border-gray-400 text-gray-400" : ""}
                   `}
               >
@@ -828,11 +823,10 @@ function App() {
                   className={`flex ${msg.source === "ai" ? "justify-start" : "justify-end"}`}
                 >
                   <div
-                    className={`max-w-[85%] text-xs p-3 rounded-2xl ${
-                      msg.source === "ai"
+                    className={`max-w-[85%] text-xs p-3 rounded-2xl ${msg.source === "ai"
                         ? "bg-indigo-50 text-indigo-800 rounded-tl-none border border-indigo-100"
                         : "bg-gray-100 text-gray-700 rounded-tr-none border border-gray-200"
-                    }`}
+                      }`}
                   >
                     {msg.source === "ai" && (
                       <span className="block text-[9px] text-indigo-500 font-black mb-1 tracking-wider">

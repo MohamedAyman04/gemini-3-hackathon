@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { APP_BASE_URL, AUTH_COOKIE_NAME } from "../config";
+import { APP_BASE_URL, AUTH_COOKIE_NAME, REST_API_URL } from "../config";
 
 export interface User {
   id: string;
@@ -32,12 +32,52 @@ export const useAuth = () => {
       // 1. Check for the cookie
       // Note: This requires "cookies" permission and host permissions for the URL
       // explicit check on API_BASE_URL because that's where the backend sets the cookie
-      const cookie = await chrome.cookies.get({
+      console.log(`[Auth] Checking cookie: ${AUTH_COOKIE_NAME} on ${COOKIE_DOMAIN_URL}`);
+
+      // Try finding standard cookie first
+      let cookie = await chrome.cookies.get({
         url: COOKIE_DOMAIN_URL,
         name: AUTH_COOKIE_NAME,
       });
 
+      // If not found, try finding PARTITIONED cookie (since backend uses Partitioned: true)
       if (!cookie) {
+        try {
+          // The partition key is usually the top-level site
+          const topLevelSite = new URL(COOKIE_DOMAIN_URL).origin;
+          console.log(`[Auth] Standard cookie not found. Trying partitioned cookie for key: ${topLevelSite}`);
+
+          cookie = await chrome.cookies.get({
+            url: COOKIE_DOMAIN_URL,
+            name: AUTH_COOKIE_NAME,
+            partitionKey: {
+              topLevelSite: topLevelSite
+            }
+          });
+        } catch (err) {
+          console.warn("[Auth] Partitioned cookie check failed (browser might not support it):", err);
+        }
+      }
+
+      // Fallback: Search all "connect.sid" cookies and match manually
+      if (!cookie) {
+        console.log("[Auth] Specific cookie not found, searching all cookies...");
+        const allCookies = await chrome.cookies.getAll({ name: AUTH_COOKIE_NAME });
+        console.log(`[Auth] Found ${allCookies.length} candidate cookies.`);
+        allCookies.forEach(c => console.log(`[Auth] Candidate: Domain=${c.domain}, Path=${c.path}, PartitionKey=${JSON.stringify(c.partitionKey)}`));
+
+        const domainStr = new URL(COOKIE_DOMAIN_URL).hostname;
+
+        // Looser matching: check if cookie domain is a substring of config domain OR vice versa
+        cookie = allCookies.find(c => {
+          const cleanCookieDomain = c.domain.replace(/^\./, '');
+          return domainStr.includes(cleanCookieDomain) || cleanCookieDomain.includes(domainStr);
+        }) || null;
+      }
+
+
+      if (!cookie) {
+        console.log("[Auth] No valid authentication cookie found.");
         setState({
           isAuthenticated: false,
           isLoading: false,
@@ -47,12 +87,19 @@ export const useAuth = () => {
         return;
       }
 
+      console.log("[Auth] Cookie found:", cookie);
+
       console.log("[Auth] Cookie found, fetching user profile...");
 
       // 2. Fetch real user profile from backend
       try {
-        const response = await fetch(`${BACKEND_URL}/auth/me`, {
+        const response = await fetch(`${REST_API_URL}/auth/me`, {
           credentials: "include",
+          headers: {
+            // Explicitly pass session ID because extension context might not attach partitioned cookies
+            // correctly to cross-site requests (or requests to the proxy)
+            'x-session-id': cookie.value
+          }
         });
 
         if (!response.ok) {
@@ -98,7 +145,7 @@ export const useAuth = () => {
 
   const logout = async () => {
     try {
-      await chrome.cookies.remove({ url: BACKEND_URL, name: AUTH_COOKIE_NAME });
+      await chrome.cookies.remove({ url: REST_API_URL, name: AUTH_COOKIE_NAME });
     } catch (e) {
       console.error("Failed to remove cookie:", e);
     }

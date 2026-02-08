@@ -60,7 +60,13 @@ export class AuthController {
 
   @Get('me')
   async me(@Req() request: Request) {
-    const userId = request.cookies['connect.sid'];
+    let userId = request.cookies['connect.sid'];
+
+    // Fallback to custom header for extensions/clients where cookies are blocked/partitioned
+    if (!userId) {
+      userId = request.headers['x-session-id'] as string;
+    }
+
     if (!userId) {
       throw new UnauthorizedException();
     }
